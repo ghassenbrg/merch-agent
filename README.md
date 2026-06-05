@@ -33,6 +33,20 @@ This version includes:
 
 ## Run Locally
 
+One-command setup and production-like preview:
+
+```bash
+./scripts/ready.sh
+```
+
+This creates/uses the backend virtualenv, installs backend and frontend dependencies, builds the frontend, generates a temporary API token when none is set, and starts the authenticated preview at `http://127.0.0.1:3000`.
+
+Optional full checks before starting:
+
+```bash
+MERCH_AGENT_RUN_CHECKS=1 ./scripts/ready.sh
+```
+
 Backend:
 
 ```bash

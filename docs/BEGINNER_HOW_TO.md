@@ -28,6 +28,22 @@ cd /Users/ghassenbrg/git/merch-agent
 
 ## 2. Install Backend Dependencies
 
+Fast path:
+
+```bash
+./scripts/ready.sh
+```
+
+That one command installs backend and frontend dependencies, builds the frontend, creates a temporary API token, and starts the app at `http://127.0.0.1:3000`.
+
+Use this when you want it to run the safety checks before starting:
+
+```bash
+MERCH_AGENT_RUN_CHECKS=1 ./scripts/ready.sh
+```
+
+Manual backend setup:
+
 ```bash
 cd /Users/ghassenbrg/git/merch-agent/backend
 python3 -m venv .venv
