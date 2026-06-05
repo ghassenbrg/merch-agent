@@ -19,6 +19,8 @@ definePageMeta({ layout: 'default' })
 
 const route = useRoute()
 const base = useApiBase()
+const apiOptions = useApiFetchOptions()
+const apiHeaders = useApiHeaders()
 const draftId = computed(() => String(route.params.id))
 const actionMessage = ref('')
 const isAmazonBusy = ref(false)
@@ -33,19 +35,19 @@ const manualStatus = ref('LISTING_READY')
 
 const { data: draft, pending, error, refresh } = await useFetch<Draft>(
   () => `${base}/api/drafts/${draftId.value}`,
-  { watch: [draftId] },
+  { ...apiOptions, watch: [draftId] },
 )
 const { data: events, refresh: refreshEvents } = await useFetch<DraftEvent[]>(
   () => `${base}/api/drafts/${draftId.value}/events`,
-  { watch: [draftId], default: () => [] },
+  { ...apiOptions, watch: [draftId], default: () => [] },
 )
 const { data: changes, refresh: refreshChanges } = await useFetch<DraftChange[]>(
   () => `${base}/api/drafts/${draftId.value}/changes`,
-  { watch: [draftId], default: () => [] },
+  { ...apiOptions, watch: [draftId], default: () => [] },
 )
 const { data: artifacts, refresh: refreshArtifacts } = await useFetch<DraftArtifact[]>(
   () => `${base}/api/drafts/${draftId.value}/artifacts`,
-  { watch: [draftId], default: () => [] },
+  { ...apiOptions, watch: [draftId], default: () => [] },
 )
 
 watch(
@@ -103,6 +105,7 @@ async function postDraftAction(action: string) {
   try {
     const response = await $fetch<StatusResponse>(`${base}/api/drafts/${draftId.value}/${action}`, {
       method: 'POST',
+      headers: apiHeaders,
     })
     actionMessage.value = response.message
     await Promise.all([refresh(), refreshEvents(), refreshChanges(), refreshArtifacts()])
@@ -118,6 +121,7 @@ async function saveReviewSettings() {
   try {
     await $fetch<Draft>(`${base}/api/drafts/${draftId.value}`, {
       method: 'PATCH',
+      headers: apiHeaders,
       body: {
         selected_marketplaces: selectedMarketplaceCodes.value,
         price: {
@@ -148,6 +152,7 @@ async function startAmazonDraft() {
   try {
     const response = await $fetch<{ message: string }>(`${base}/api/drafts/${draftId.value}/amazon-draft`, {
       method: 'POST',
+      headers: apiHeaders,
       body: {
         mode: 'controlled_live_save',
         manual_ui_triggered: true,

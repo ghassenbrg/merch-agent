@@ -1,0 +1,39 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      MERCH_AGENT_ENV: ${MERCH_AGENT_ENV:-production}
+      MERCH_AGENT_EXPOSED: ${MERCH_AGENT_EXPOSED:-true}
+      MERCH_AGENT_API_TOKEN: ${MERCH_AGENT_API_TOKEN:?Set MERCH_AGENT_API_TOKEN before starting production-like services}
+      MERCH_AGENT_ALLOWED_ORIGINS: ${MERCH_AGENT_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      MERCH_AGENT_TRUSTED_HOSTS: ${MERCH_AGENT_TRUSTED_HOSTS:-localhost,127.0.0.1,backend}
+      MERCH_AGENT_DATA_DIR: /app/data
+      MERCH_AGENT_RATE_LIMIT_PER_MINUTE: ${MERCH_AGENT_RATE_LIMIT_PER_MINUTE:-240}
+      MERCH_AGENT_WRITE_RATE_LIMIT_PER_MINUTE: ${MERCH_AGENT_WRITE_RATE_LIMIT_PER_MINUTE:-60}
+      MERCH_AGENT_LOG_RETENTION_DAYS: ${MERCH_AGENT_LOG_RETENTION_DAYS:-30}
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    environment:
+      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-http://127.0.0.1:8000}
+      NUXT_PUBLIC_API_TOKEN: ${MERCH_AGENT_API_TOKEN:?Set MERCH_AGENT_API_TOKEN before starting production-like services}
+      HOST: 0.0.0.0
+      PORT: 3000
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy

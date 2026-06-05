@@ -5,13 +5,15 @@ import { ClipboardList, Play, RefreshCw, ShieldCheck } from '@lucide/vue'
 definePageMeta({ layout: 'default' })
 
 const base = useApiBase()
+const apiOptions = useApiFetchOptions()
+const apiHeaders = useApiHeaders()
 const selectedRunId = ref<string | null>(null)
 const isRunning = ref(false)
 const isSchedulerBusy = ref(false)
 const actionMessage = ref('')
 
-const { data: runs, pending, error, refresh } = await useFetch<RunSummary[]>(`${base}/api/runs`)
-const { data: scheduler, refresh: refreshScheduler } = await useFetch<SchedulerStatus>(`${base}/api/workflows/autopilot/scheduler`)
+const { data: runs, pending, error, refresh } = await useFetch<RunSummary[]>(`${base}/api/runs`, apiOptions)
+const { data: scheduler, refresh: refreshScheduler } = await useFetch<SchedulerStatus>(`${base}/api/workflows/autopilot/scheduler`, apiOptions)
 
 watchEffect(() => {
   if (!selectedRunId.value && runs.value?.length) {
@@ -19,10 +21,20 @@ watchEffect(() => {
   }
 })
 
-const { data: selectedRun, refresh: refreshSelected } = await useFetch<RunDetail | null>(
-  () => selectedRunId.value ? `${base}/api/runs/${selectedRunId.value}` : null,
-  { watch: [selectedRunId] },
+const { data: selectedRun, refresh: refreshSelected } = await useAsyncData<RunDetail | null>(
+  'selected-run-detail',
+  async () => {
+    if (!selectedRunId.value) return null
+    return await $fetch<RunDetail>(`${base}/api/runs/${selectedRunId.value}`, {
+      headers: apiHeaders,
+    })
+  },
+  { watch: [selectedRunId], default: () => null },
 )
+
+async function refreshRuns() {
+  await refresh()
+}
 
 async function runAutopilot() {
   isRunning.value = true
@@ -30,6 +42,7 @@ async function runAutopilot() {
   try {
     const response = await $fetch<RunResponse>(`${base}/api/workflows/autopilot/run`, {
       method: 'POST',
+      headers: apiHeaders,
       body: {
         count: 2,
         default_product: 'standard_tshirt',
@@ -52,6 +65,7 @@ async function runScheduledTick() {
   try {
     const response = await $fetch<SchedulerRunResponse>(`${base}/api/workflows/autopilot/scheduler/tick`, {
       method: 'POST',
+      headers: apiHeaders,
     })
     actionMessage.value = response.message
     if (response.runId) {
@@ -69,6 +83,7 @@ async function setSchedulerStop(engaged: boolean) {
   try {
     await $fetch(`${base}/api/workflows/autopilot/scheduler/${engaged ? 'stop' : 'resume'}`, {
       method: 'POST',
+      headers: apiHeaders,
     })
     actionMessage.value = engaged
       ? 'Scheduled local autopilot stop switch engaged.'
@@ -88,7 +103,7 @@ async function setSchedulerStop(engaged: boolean) {
         <p class="page-subtitle">Local autopilot history, status outcomes, generated package links, and run logs.</p>
       </div>
       <div class="toolbar">
-        <button class="btn" :disabled="pending" @click="refresh">Refresh</button>
+        <button class="btn" :disabled="pending" @click="refreshRuns">Refresh</button>
         <button class="btn primary" :disabled="isRunning" @click="runAutopilot">
           <RefreshCw v-if="isRunning" :size="15" class="spin" />
           <Play v-else :size="15" />

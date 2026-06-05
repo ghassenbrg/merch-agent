@@ -11,6 +11,7 @@ const emit = defineEmits<{
 }>()
 
 const base = useApiBase()
+const apiHeaders = useApiHeaders()
 const isSaving = ref(false)
 const errorMessage = ref('')
 const form = ref<Record<string, Record<string, string>>>({})
@@ -46,6 +47,7 @@ async function saveListing() {
   try {
     await $fetch<Draft>(`${base}/api/drafts/${props.draft.draft_id}`, {
       method: 'PATCH',
+      headers: apiHeaders,
       body: {
         listing_groups: form.value,
       },

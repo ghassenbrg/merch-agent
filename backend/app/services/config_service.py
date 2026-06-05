@@ -6,6 +6,7 @@ from typing import Any
 import yaml
 
 from app.core.paths import CONFIG_DIR
+from app.core.settings import get_settings
 from app.db.database import get_connection
 from app.models.schemas import ConfigResponse, SettingsPatch
 
@@ -190,6 +191,7 @@ def _load_settings(defaults: dict[str, Any]) -> dict[str, Any]:
 def get_config() -> ConfigResponse:
     config = {key: _read_yaml(filename) for key, filename in CONFIG_FILES.items()}
     settings = _load_settings(_default_settings(config))
+    settings["runtime"] = get_settings().public_status()
     return ConfigResponse(**config, settings=settings)
 
 

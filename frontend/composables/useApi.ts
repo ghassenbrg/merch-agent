@@ -134,4 +134,21 @@ export const useApiBase = () => {
   return config.public.apiBase as string
 }
 
+export type ApiHeaders = Record<string, string>
+
+export interface ApiFetchOptions {
+  headers?: ApiHeaders
+}
+
+export const useApiHeaders = (): ApiHeaders => {
+  const config = useRuntimeConfig()
+  const token = config.public.apiToken as string
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+export const useApiFetchOptions = (): ApiFetchOptions => {
+  const headers = useApiHeaders()
+  return Object.keys(headers).length ? { headers } : {}
+}
+
 export const apiUrl = (path: string) => `${useApiBase()}${path}`

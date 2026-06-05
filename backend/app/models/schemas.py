@@ -60,21 +60,21 @@ class Draft(BaseModel):
 
 
 class ListingGroupPatch(BaseModel):
-    design_title: str | None = None
-    brand: str | None = None
-    feature_bullet_1: str | None = None
-    feature_bullet_2: str | None = None
-    product_description: str | None = None
+    design_title: str | None = Field(default=None, min_length=1, max_length=60)
+    brand: str | None = Field(default=None, min_length=1, max_length=50)
+    feature_bullet_1: str | None = Field(default=None, min_length=1, max_length=256)
+    feature_bullet_2: str | None = Field(default=None, min_length=1, max_length=256)
+    product_description: str | None = Field(default=None, min_length=1, max_length=2000)
 
 
 class PricePatch(BaseModel):
-    currency: str | None = None
-    amount: float | None = None
+    currency: str | None = Field(default=None, min_length=3, max_length=3, pattern=r"^[A-Z]{3}$")
+    amount: float | None = Field(default=None, gt=0, le=1000)
 
 
 class DraftPatch(BaseModel):
     listing_groups: dict[str, ListingGroupPatch] | None = None
-    selected_marketplaces: list[str] | None = None
+    selected_marketplaces: list[str] | None = Field(default=None, max_length=20)
     price: PricePatch | None = None
     status: str | None = None
 
@@ -102,8 +102,8 @@ class JobResponse(BaseModel):
 
 
 class AutopilotRequest(BaseModel):
-    count: int = 5
-    default_product: str = "standard_tshirt"
+    count: int = Field(default=5, ge=1, le=10)
+    default_product: str = Field(default="standard_tshirt", min_length=1, max_length=80, pattern=r"^[a-z0-9_]+$")
     explore_marketplaces: bool = True
     touch_amazon: bool = False
     production_mode: bool = False

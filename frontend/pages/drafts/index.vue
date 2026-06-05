@@ -5,12 +5,13 @@ import { Filter, Search } from '@lucide/vue'
 definePageMeta({ layout: 'default' })
 
 const base = useApiBase()
+const apiOptions = useApiFetchOptions()
 const query = ref('')
 const statusFilter = ref('all')
 const productFilter = ref('all')
 const marketplaceFilter = ref('all')
 
-const { data: drafts, pending, error, refresh } = await useFetch<DraftSummary[]>(`${base}/api/drafts`)
+const { data: drafts, pending, error, refresh } = await useFetch<DraftSummary[]>(`${base}/api/drafts`, apiOptions)
 
 const statuses = computed(() => [...new Set((drafts.value || []).map((draft) => draft.status))].sort())
 const products = computed(() => [...new Set((drafts.value || []).map((draft) => draft.product_label))].sort())
@@ -37,6 +38,10 @@ const filteredDrafts = computed(() => {
   })
 })
 
+async function refreshDrafts() {
+  await refresh()
+}
+
 function openDraft(draftId: string) {
   navigateTo(`/drafts/${draftId}`)
 }
@@ -49,7 +54,7 @@ function openDraft(draftId: string) {
         <h1 class="page-title">Drafts</h1>
         <p class="page-subtitle">Generated local packages with status, product, and marketplace filters.</p>
       </div>
-      <button class="btn" :disabled="pending" @click="refresh">Refresh</button>
+      <button class="btn" :disabled="pending" @click="refreshDrafts">Refresh</button>
     </header>
 
     <section class="panel">

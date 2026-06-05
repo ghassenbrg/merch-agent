@@ -6,16 +6,53 @@ const props = defineProps<{
 }>()
 
 const base = useApiBase()
+const apiHeaders = useApiHeaders()
 const imageFailed = ref(false)
-const previewUrl = computed(() => `${base}/api/drafts/${props.draft.draft_id}/design/final.png`)
-const hasFinalPng = computed(() => Boolean(props.draft.design?.final_png) && !imageFailed.value)
+const objectUrl = ref('')
+const directPreviewUrl = computed(() => `${base}/api/drafts/${props.draft.draft_id}/design/final.png`)
+const usesProtectedImage = computed(() => Object.keys(apiHeaders).length > 0)
+const previewUrl = computed(() => usesProtectedImage.value ? objectUrl.value : directPreviewUrl.value)
+const hasFinalPng = computed(() => (
+  Boolean(props.draft.design?.final_png)
+  && !imageFailed.value
+  && (!usesProtectedImage.value || Boolean(objectUrl.value))
+))
+
+function revokeObjectUrl() {
+  if (objectUrl.value) {
+    URL.revokeObjectURL(objectUrl.value)
+    objectUrl.value = ''
+  }
+}
+
+async function loadProtectedImage() {
+  imageFailed.value = false
+  if (!usesProtectedImage.value || !import.meta.client) {
+    revokeObjectUrl()
+    return
+  }
+  try {
+    const blob = await $fetch<Blob>(directPreviewUrl.value, {
+      headers: apiHeaders,
+      responseType: 'blob',
+    })
+    revokeObjectUrl()
+    objectUrl.value = URL.createObjectURL(blob)
+  } catch {
+    imageFailed.value = true
+  }
+}
 
 watch(
   () => props.draft.draft_id,
   () => {
     imageFailed.value = false
+    loadProtectedImage()
   },
+  { immediate: true },
 )
+
+onBeforeUnmount(revokeObjectUrl)
 </script>
 
 <template>

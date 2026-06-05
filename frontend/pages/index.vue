@@ -19,6 +19,8 @@ import {
 definePageMeta({ layout: 'default' })
 
 const base = useApiBase()
+const apiOptions = useApiFetchOptions()
+const apiHeaders = useApiHeaders()
 const selectedDraftId = ref<string | null>(null)
 const actionMessage = ref('')
 const isRunning = ref(false)
@@ -28,9 +30,9 @@ const activeFilter = ref<'all' | 'ready' | 'needs_fix' | 'saved' | 'blocked'>('a
 const bulkCount = ref(2)
 const bulkProduct = ref('standard_tshirt')
 
-const { data: drafts, pending, error, refresh } = await useFetch<DraftSummary[]>(`${base}/api/drafts`)
-const { data: config } = await useFetch<any>(`${base}/api/config`)
-const { data: scheduler } = await useFetch<SchedulerStatus>(`${base}/api/workflows/autopilot/scheduler`)
+const { data: drafts, pending, error, refresh } = await useFetch<DraftSummary[]>(`${base}/api/drafts`, apiOptions)
+const { data: config } = await useFetch<any>(`${base}/api/config`, apiOptions)
+const { data: scheduler } = await useFetch<SchedulerStatus>(`${base}/api/workflows/autopilot/scheduler`, apiOptions)
 
 watchEffect(() => {
   if (!selectedDraftId.value && drafts.value?.length) {
@@ -38,9 +40,15 @@ watchEffect(() => {
   }
 })
 
-const { data: selectedDraft, refresh: refreshSelected } = await useFetch<Draft | null>(
-  () => selectedDraftId.value ? `${base}/api/drafts/${selectedDraftId.value}` : null,
-  { watch: [selectedDraftId] },
+const { data: selectedDraft, refresh: refreshSelected } = await useAsyncData<Draft | null>(
+  'dashboard-selected-draft',
+  async () => {
+    if (!selectedDraftId.value) return null
+    return await $fetch<Draft>(`${base}/api/drafts/${selectedDraftId.value}`, {
+      headers: apiHeaders,
+    })
+  },
+  { watch: [selectedDraftId], default: () => null },
 )
 
 const stats = computed(() => {
@@ -103,6 +111,7 @@ async function runAutopilot() {
   try {
     const response = await $fetch<RunResponse>(`${base}/api/workflows/autopilot/run`, {
       method: 'POST',
+      headers: apiHeaders,
       body: {
         count: bulkCount.value,
         default_product: bulkProduct.value,
@@ -125,6 +134,7 @@ async function postDraftAction(action: string) {
   if (!selectedDraftId.value) return
   const response = await $fetch<StatusResponse>(`${base}/api/drafts/${selectedDraftId.value}/${action}`, {
     method: 'POST',
+    headers: apiHeaders,
   })
   actionMessage.value = response.message
   await Promise.all([refresh(), refreshSelected()])
@@ -144,6 +154,7 @@ async function startAmazonDraft() {
   try {
     const response = await $fetch<{ message: string }>(`${base}/api/drafts/${selectedDraftId.value}/amazon-draft`, {
       method: 'POST',
+      headers: apiHeaders,
     })
     actionMessage.value = response.message
     await Promise.all([refresh(), refreshSelected()])

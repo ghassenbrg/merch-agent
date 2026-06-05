@@ -1030,7 +1030,7 @@ Goal: only after dry-run safety is tested, save one Amazon draft manually.
 - Update local status to `AMAZON_DRAFT_SAVED` or `AMAZON_DRAFT_FAILED`.
 - Never publish or submit for review.
 
-### Latest Completed Milestone: Research and Candidate Discovery Expansion
+### Earlier Completed Milestone: Research and Candidate Discovery Expansion
 
 Completed after Production Readiness Roadmap Phase 4:
 
@@ -1064,9 +1064,28 @@ Production-preview browser QA was run against desktop and mobile viewport routes
 
 Result: pages rendered nonblank, no framework overlays, no console warnings/errors, no horizontal overflow, app-shell navigation worked, the fresh generated draft detail loaded its real `4500x5400` PNG preview at a `390px` mobile viewport, and the local autopilot button completed with "No Amazon interaction occurred."
 
+### Earlier Completed Milestone: Security, Access Control, and Deployment Readiness
+
+Completed after Production Readiness Roadmap Phase 11:
+
+- Added production-like runtime config, bearer auth, CORS/origin hardening, rate limits, health/readiness checks, log retention, deployment scripts/Docker files, dependency audit process, secrets handling docs, and focused tests.
+- Authenticated production-preview browser QA passed on `/`, `/drafts`, `/drafts/drf_auto_5432b8c063`, `/runs`, and `/settings` at 1280x720 desktop and 390x844 mobile.
+- Local package generation from the dashboard completed with "No Amazon interaction occurred." Live Amazon Draft Assist was not clicked.
+
+### Latest Completed Milestone: Beta Runbook and Production Acceptance
+
+Completed after Production Readiness Roadmap Phase 12:
+
+- Added `docs/OPERATOR_RUNBOOK.md` with start/stop, production-preview operation, local package generation, review/approval, Amazon Draft Assist, recovery, backup/export/restore, logs, and evidence procedures.
+- Added `docs/PRODUCTION_ACCEPTANCE.md` with production acceptance checklist, beta cycle checklist, known limitations, and final safety criteria.
+- Linked the Phase 12 operations docs from `README.md`.
+- Verified the app against the production-ready criteria with tests, production build, dependency audit, authenticated production-preview browser QA, local package generation, protected API checks, readiness checks, and package export.
+- Safe beta cycle generated draft `drf_auto_7d0a2910c1`, confirmed the dashboard message "No Amazon interaction occurred", rendered the draft detail final PNG on desktop and mobile, and exported local packages to `data/exports/merch_packages_20260605T101923Z.tar.gz`.
+- Controlled live Amazon Draft Assist was not run in this session because no package-specific live Amazon authorization was given. Phase 12 acceptance is therefore complete for local beta production readiness, with live draft save remaining a manual, explicitly authorized one-package operation.
+
 ### Immediate Next Session Recommendation
 
-Start Phase 6 from the Production Readiness Roadmap: dashboard review, editing, and approval workflow. Keep all Amazon Draft Assist work simulated and manual only; do not start Amazon dry-run or live automation work.
+Phase 12 is complete. Future sessions should use the operator runbook and production acceptance checklist for beta operation, maintenance, bug fixes, or explicitly requested follow-up phases. Do not expand Amazon browser automation unless explicitly requested.
 
 For every future session:
 
@@ -1075,7 +1094,7 @@ For every future session:
    - `cd backend && . .venv/bin/activate && pytest -q`
    - `cd frontend && npm run build`
    - `cd frontend && npm audit --audit-level=moderate`
-3. Work only on Phase 6 unless the user explicitly changes scope.
+3. Work only on the user-requested maintenance task unless the user explicitly starts a new phase.
 4. Re-run backend tests, frontend build, audit, and production-preview browser QA.
 5. Update this plan with completed phase notes and the next session recommendation.
 
@@ -1647,7 +1666,7 @@ Additional check:
 
 ```bash
 cd frontend && npm run typecheck
-# blocked: Nuxt could not find a root frontend/tsconfig.json
+# originally blocked because frontend/tsconfig.json was missing; fixed on 2026-06-05
 ```
 
 Production-preview browser QA:
@@ -1733,7 +1752,7 @@ Result: in-app Browser checks passed with meaningful rendered content, no framew
 
 ### Phase 11: Security, Access Control, and Deployment Readiness
 
-Status: pending.
+Status: completed.
 
 Goal: make the app safe to run beyond a local development shell.
 
@@ -1756,9 +1775,81 @@ Exit criteria:
 - Localhost-only assumptions are documented or removed.
 - Basic security review passes.
 
+Completed after Phase 11:
+
+- Added environment-derived runtime config in `backend/app/core/settings.py` for local/production mode, exposure, API token requirement, allowed origins, trusted hosts, rate limits, and log retention.
+- Added FastAPI middleware for security headers, trusted hosts, optional bearer authentication, unsafe-method origin rejection, and lightweight per-client API rate limiting.
+- Production-like mode (`MERCH_AGENT_ENV=production`, `staging`, or `MERCH_AGENT_EXPOSED=true`) now fails startup without `MERCH_AGENT_API_TOKEN`.
+- Kept local mode localhost-friendly and unauthenticated by default; documented exposure risks and required env vars.
+- Hardened CORS to explicit origins, no credentials, and explicit API methods/headers.
+- Added `/health/live` and `/health/ready`; readiness checks config, database, data dirs, and sanitized runtime posture.
+- Added sanitized runtime security posture to `/api/config` and surfaced it on the Settings page.
+- Added Pydantic validation bounds for autopilot requests, listing patches, price patches, and marketplace list size.
+- Updated Nuxt API helpers to send an optional `NUXT_PUBLIC_API_TOKEN` bearer header; protected PNG previews load through blob fetches when auth is enabled.
+- Added `.env.example`, ignored real `.env` files, and documented secrets handling for API tokens, browser profiles, data, logs, screenshots, and exports.
+- Added `scripts/audit_dependencies.sh`, `scripts/production_preview.sh`, `backend/Dockerfile`, `frontend/Dockerfile`, and `docker-compose.yml`.
+- Added focused Phase 11 tests for readiness, auth, origin rejection, write rate limiting, and production token enforcement.
+
+Baseline verification before Phase 11 changes:
+
+```bash
+cd backend && . .venv/bin/activate && pytest -q
+# 63 passed in 9.96s
+
+cd frontend && npm run build
+# passed
+
+cd frontend && npm audit --audit-level=moderate
+# found 0 vulnerabilities
+```
+
+Post-implementation verification:
+
+```bash
+cd backend && . .venv/bin/activate && pytest -q
+# 68 passed in 10.57s
+
+cd frontend && npm run build
+# passed
+
+./scripts/audit_dependencies.sh
+# No broken requirements found.
+# found 0 vulnerabilities
+```
+
+Authenticated production-preview browser QA:
+
+```bash
+cd backend && . .venv/bin/activate && \
+  MERCH_AGENT_ENV=production \
+  MERCH_AGENT_EXPOSED=false \
+  MERCH_AGENT_API_TOKEN=<preview-token> \
+  MERCH_AGENT_ALLOWED_ORIGINS=http://127.0.0.1:3000,http://localhost:3000 \
+  uvicorn app.main:app --host 127.0.0.1 --port 8000
+
+cd frontend && \
+  NUXT_PUBLIC_API_BASE=http://127.0.0.1:8000 \
+  NUXT_PUBLIC_API_TOKEN=<preview-token> \
+  HOST=127.0.0.1 PORT=3000 node .output/server/index.mjs
+```
+
+Routes checked:
+
+```text
+/
+/drafts
+/drafts/drf_auto_5432b8c063
+/runs
+/settings
+```
+
+Viewports: 1280x720 desktop, 390x844 mobile
+
+Result: unauthenticated preview API access to `/api/drafts` returned 401 and bearer-authenticated access returned 200. Browser QA passed for all required routes with meaningful rendered content, no backend unavailable states, no error headings/framework overlays, no console warnings/errors, no horizontal overflow, Settings showing the Security Posture panel, and the fresh generated draft detail loading its protected `4500x5400` final PNG through a blob URL on desktop and mobile. Local package generation was triggered from the dashboard and completed with "No Amazon interaction occurred." Live Amazon Draft Assist was not clicked.
+
 ### Phase 12: Beta Runbook and Production Acceptance
 
-Status: pending.
+Status: completed on 2026-06-05.
 
 Goal: define when the system is production-ready to use.
 
@@ -1791,6 +1882,65 @@ Production-ready criteria:
 - Operator runbook is accurate.
 - A human remains responsible for final Amazon review and publishing.
 
+Completed after Phase 12:
+
+- Created `docs/OPERATOR_RUNBOOK.md`.
+- Created `docs/PRODUCTION_ACCEPTANCE.md`.
+- Updated `README.md` with links to the Phase 12 operations docs.
+- Documented start/stop services, production-like preview, local package generation, review/approval, Amazon Draft Assist preflight, failure recovery, stuck-job recovery, reset/seed, backup/export/restore, logs/evidence, beta acceptance, known limitations, and final safety criteria.
+- Kept Amazon Draft Assist live save out of the beta run because controlled live Amazon interaction requires explicit package-specific authorization.
+
+Verification:
+
+```bash
+cd backend && . .venv/bin/activate && pytest -q
+# 68 passed in 9.82s
+
+cd frontend && npm run build
+# passed
+
+./scripts/audit_dependencies.sh
+# No broken requirements found.
+# found 0 vulnerabilities
+```
+
+Authenticated production-preview QA:
+
+```bash
+MERCH_AGENT_API_TOKEN=phase12-preview-token \
+MERCH_AGENT_ENV=production \
+MERCH_AGENT_EXPOSED=false \
+MERCH_AGENT_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000 \
+MERCH_AGENT_TRUSTED_HOSTS=localhost,127.0.0.1,::1 \
+NUXT_PUBLIC_API_TOKEN=phase12-preview-token \
+./scripts/production_preview.sh
+```
+
+Routes checked:
+
+```text
+/
+/drafts
+/drafts/drf_auto_7d0a2910c1
+/runs
+/settings
+```
+
+Viewports: 1280x720 desktop, 390x844 mobile
+
+Acceptance result:
+
+- Unauthenticated `/api/drafts` returned 401.
+- Authenticated `/health/ready` returned `status=ok`, `auth_required=true`, and `api_token_configured=true`.
+- Dashboard local generation completed with "No Amazon interaction occurred."
+- Generated draft checked: `drf_auto_7d0a2910c1`.
+- Package export created: `data/exports/merch_packages_20260605T101923Z.tar.gz`.
+- Browser QA passed on desktop and mobile with meaningful rendered content, no framework overlays, no console warnings/errors, no horizontal overflow, and protected final PNG rendering on the generated draft detail page.
+- In-app Browser screenshot capture timed out in this runtime; screenshot evidence was captured with the repo Playwright dependency at `/tmp/merch-agent-phase12-detail-desktop.png` and `/tmp/merch-agent-phase12-detail-mobile.png`.
+- Controlled live Amazon Draft Assist was not clicked.
+
+Final acceptance status: ready for local beta production operation under the operator runbook. Live Amazon draft save remains a manual, one-draft, save-draft-only action requiring explicit package-specific authorization and human review before any later Amazon-side publishing.
+
 ## Copy/Paste Prompt For Next Session
 
 Use this prompt in a new Codex session from `/Users/ghassenbrg/git/merch-agent`:
@@ -1804,8 +1954,10 @@ Read MERCH_AGENT_PLAN.md first, especially:
 - the next incomplete phase
 
 Current state:
-- FastAPI backend has SQLite seed data, draft APIs, workflow APIs, validation, Amazon Draft Assist guardrails, run history APIs, config/settings APIs, draft event APIs, deterministic local package workflow, local artwork PNG validation contracts, deterministic local PNG rendering, Phase 4 candidate discovery/auditing, production-mode research snapshot enforcement, Phase 5 compliance/listing hardening, Phase 10 scheduler/autopilot operations, and focused tests.
-- Nuxt 3 frontend has the redesigned dashboard UI plus real Drafts, draft detail, Runs, and Settings pages backed by the API; draft detail shows the real generated final PNG when present, and Runs/Settings expose scheduler operations indicators and controls.
+- FastAPI backend has SQLite seed data, draft APIs, workflow APIs, validation, Amazon Draft Assist guardrails, run history APIs, config/settings APIs, draft event APIs, deterministic local package workflow, local artwork PNG validation contracts, deterministic local PNG rendering, Phase 4 candidate discovery/auditing, production-mode research snapshot enforcement, Phase 5 compliance/listing hardening, Phase 10 scheduler/autopilot operations, Phase 11 production-readiness controls, Phase 12 runbook/acceptance docs, and focused tests.
+- Nuxt 3 frontend has the redesigned dashboard UI plus real Drafts, draft detail, Runs, and Settings pages backed by the API; draft detail shows the real generated final PNG when present, Runs/Settings expose scheduler operations indicators and controls, and Settings shows sanitized security posture.
+- Phase 11 added environment config, optional bearer API auth for production-like exposure, CORS/origin hardening, rate limits, health/readiness checks, log retention, Docker/compose files, production-preview/dependency-audit scripts, `.env.example`, and docs.
+- Phase 12 added `docs/OPERATOR_RUNBOOK.md` and `docs/PRODUCTION_ACCEPTANCE.md`; use them for beta operation and acceptance.
 - Production frontend preview should be used, not Nuxt dev mode, because dev mode previously had a Vite IPC socket issue on this machine.
 - Generated build/runtime artifacts are ignored.
 
@@ -1814,7 +1966,7 @@ Hard safety constraints:
 - Scheduled autopilot must never invoke Amazon Draft Assist.
 - Amazon Draft Assist remains manual, one draft at a time, save draft only, and guarded by dry-run/live-save safety checks.
 - Never publish, submit for review, batch upload, edit live listings, or click dangerous Amazon actions.
-- Do not expand Amazon browser automation in this session.
+- Do not expand Amazon browser automation unless explicitly requested.
 
 First verify:
 cd backend && . .venv/bin/activate && pytest -q
@@ -1822,27 +1974,25 @@ cd frontend && npm run build
 cd frontend && npm audit --audit-level=moderate
 
 Next milestone:
-Implement Phase 11 from the Production Readiness Roadmap: Security, Access Control, and Deployment Readiness.
+Phase 12 is complete. Use the runbook for beta operation, or work only on the specific maintenance/follow-up task requested by the user.
 
 Implement in this order:
-1. Add environment config for local vs production mode.
-2. Add localhost-safe default access controls and document exposure risks.
-3. Harden CORS/CSRF behavior for any non-localhost deployment path.
-4. Add secret/config handling for browser profiles and future external integrations.
-5. Add operation audit checks for scheduler and Amazon Draft Assist boundaries.
-6. Update the runbook and deployment notes.
+1. Read `docs/OPERATOR_RUNBOOK.md` and `docs/PRODUCTION_ACCEPTANCE.md`.
+2. Re-run baseline verification.
+3. Make only the requested scoped change.
+4. Re-run relevant tests and production-preview QA.
 
 After implementation:
 cd backend && . .venv/bin/activate && pytest -q
 cd frontend && npm run build
-cd frontend && npm audit --audit-level=moderate
+./scripts/audit_dependencies.sh
 
-Then run Playwright desktop/mobile QA against production preview for:
+Then run desktop/mobile QA against authenticated production preview for:
 /
 /drafts
 /drafts/<new_generated_draft_id>
 /runs
 /settings
 
-Do not expand Amazon dry-run or live automation work unless explicitly instructed.
+Do not expand Amazon dry-run or live automation work unless explicitly instructed. Never publish, submit for review, batch upload, edit live listings, or click dangerous Amazon actions.
 ```

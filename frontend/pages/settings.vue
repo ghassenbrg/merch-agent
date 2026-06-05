@@ -5,6 +5,8 @@ import { Save, ShieldCheck } from '@lucide/vue'
 definePageMeta({ layout: 'default' })
 
 const base = useApiBase()
+const apiOptions = useApiFetchOptions()
+const apiHeaders = useApiHeaders()
 const saveMessage = ref('')
 const isSaving = ref(false)
 const enabledMarketplaces = ref<string[]>([])
@@ -18,7 +20,13 @@ const intervalMinutes = ref(1440)
 const cooldownMinutes = ref(60)
 const diskUsageLimitMb = ref(2048)
 
-const { data: config, pending, error, refresh } = await useFetch<ConfigResponse>(`${base}/api/config`)
+interface ProductTemplateConfig {
+  width: number
+  height: number
+  products: string[]
+}
+
+const { data: config, pending, error, refresh } = await useFetch<ConfigResponse>(`${base}/api/config`, apiOptions)
 
 watchEffect(() => {
   if (!config.value) return
@@ -38,10 +46,13 @@ watchEffect(() => {
 const marketplaces = computed(() => config.value?.marketplaces.marketplaces || [])
 const languageSections = computed(() => config.value?.marketplaces.language_sections || {})
 const products = computed(() => Object.entries(config.value?.product_templates.products || {}))
-const templates = computed(() => Object.entries(config.value?.product_templates.product_templates || {}))
+const templates = computed<[string, ProductTemplateConfig][]>(() => Object.entries(
+  (config.value?.product_templates.product_templates || {}) as Record<string, ProductTemplateConfig>,
+))
 const prices = computed(() => config.value?.settings.default_prices || config.value?.pricing.default_prices || {})
 const validationChecks = computed(() => Object.entries(config.value?.validation.ready_for_amazon_draft || {}))
 const hardRules = computed(() => config.value?.amazon_upload_ui.amazon_upload_ui?.hard_rules || [])
+const runtime = computed(() => config.value?.settings.runtime || {})
 
 function toggleMarketplace(code: string) {
   if (enabledMarketplaces.value.includes(code)) {
@@ -73,6 +84,7 @@ async function saveSettings() {
     }
     await $fetch(`${base}/api/settings`, {
       method: 'PATCH',
+      headers: apiHeaders,
       body: patch,
     })
     saveMessage.value = 'Settings saved locally.'
@@ -211,6 +223,34 @@ async function saveSettings() {
               <span>Disk limit MB</span>
               <input v-model.number="diskUsageLimitMb" class="text-field" type="number" min="0" max="102400" />
             </label>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Security Posture</h2>
+            <span class="draft-meta">{{ runtime.environment || 'local' }} · {{ runtime.auth_required ? 'auth required' : 'localhost only' }}</span>
+          </div>
+          <StatusBadge :status="runtime.auth_required && runtime.api_token_configured ? 'READY' : 'LOCAL_ONLY'" />
+        </div>
+        <div class="panel-body meta-grid">
+          <div class="meta-box">
+            <div class="meta-label">Exposure</div>
+            <div class="meta-value">{{ runtime.exposed ? 'External' : 'Local' }}</div>
+          </div>
+          <div class="meta-box">
+            <div class="meta-label">Allowed Origins</div>
+            <div class="meta-value">{{ runtime.allowed_origins?.length || 0 }}</div>
+          </div>
+          <div class="meta-box">
+            <div class="meta-label">Write Rate Limit</div>
+            <div class="meta-value">{{ runtime.write_rate_limit_per_minute || 60 }}/min</div>
+          </div>
+          <div class="meta-box">
+            <div class="meta-label">Log Retention</div>
+            <div class="meta-value">{{ runtime.log_retention_days || 30 }} days</div>
           </div>
         </div>
       </section>
