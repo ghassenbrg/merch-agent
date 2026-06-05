@@ -23,6 +23,23 @@ class DraftEvent(BaseModel):
     created_at: str
 
 
+class DraftChange(BaseModel):
+    field: str
+    before: Any
+    after: Any
+    created_at: str
+    note: str
+
+
+class DraftArtifact(BaseModel):
+    key: str
+    label: str
+    kind: str
+    path: str
+    url: str
+    exists: bool
+
+
 class Draft(BaseModel):
     draft_id: str
     status: str
@@ -38,6 +55,28 @@ class Draft(BaseModel):
     listing_validation: dict[str, Any]
     amazon_draft: dict[str, Any]
     price: dict[str, Any]
+    research: dict[str, Any] | None = None
+    change_history: list[DraftChange] = Field(default_factory=list)
+
+
+class ListingGroupPatch(BaseModel):
+    design_title: str | None = None
+    brand: str | None = None
+    feature_bullet_1: str | None = None
+    feature_bullet_2: str | None = None
+    product_description: str | None = None
+
+
+class PricePatch(BaseModel):
+    currency: str | None = None
+    amount: float | None = None
+
+
+class DraftPatch(BaseModel):
+    listing_groups: dict[str, ListingGroupPatch] | None = None
+    selected_marketplaces: list[str] | None = None
+    price: PricePatch | None = None
+    status: str | None = None
 
 
 class StatusResponse(BaseModel):
@@ -59,6 +98,7 @@ class AutopilotRequest(BaseModel):
     default_product: str = "standard_tshirt"
     explore_marketplaces: bool = True
     touch_amazon: bool = False
+    production_mode: bool = False
 
 
 class RunResponse(BaseModel):
@@ -100,6 +140,7 @@ class ConfigResponse(BaseModel):
     pricing: dict[str, Any]
     validation: dict[str, Any]
     amazon_upload_ui: dict[str, Any]
+    candidate_sources: dict[str, Any]
     settings: dict[str, Any]
 
 

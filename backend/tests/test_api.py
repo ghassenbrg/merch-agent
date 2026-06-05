@@ -42,6 +42,60 @@ def test_amazon_draft_rejects_unready_draft() -> None:
     assert response.json()["detail"] == "Draft is not ready for Amazon."
 
 
+def test_draft_edit_persists_and_requires_reapproval() -> None:
+    response = client.patch(
+        "/api/drafts/drf_20260605_0001",
+        json={
+            "listing_groups": {
+                "English": {
+                    "design_title": "Funny Fly Fishing Grandpa Gift",
+                    "brand": "Quiet River Workshop",
+                }
+            },
+            "selected_marketplaces": [".com"],
+            "price": {"currency": "USD", "amount": 20.99},
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["listing_groups"]["English"]["design_title"] == "Funny Fly Fishing Grandpa Gift"
+    assert body["listing_groups"]["English"]["brand"] == "Quiet River Workshop"
+    assert body["status"] == "LISTING_READY"
+    assert body["amazon_draft"]["eligible"] is False
+    assert body["price"]["amount"] == 20.99
+    assert [
+        marketplace["code"]
+        for marketplace in body["marketplaces"]
+        if marketplace["selected"]
+    ] == [".com"]
+
+    persisted = client.get("/api/drafts/drf_20260605_0001").json()
+    assert persisted["listing_groups"]["English"]["design_title"] == "Funny Fly Fishing Grandpa Gift"
+
+    events = client.get("/api/drafts/drf_20260605_0001/events").json()
+    assert any(event["event_type"] == "draft_updated" for event in events)
+
+    changes = client.get("/api/drafts/drf_20260605_0001/changes").json()
+    assert any(change["field"] == "listing_groups.English.design_title" for change in changes)
+
+
+def test_draft_patch_cannot_set_ready_status_directly() -> None:
+    response = client.patch(
+        "/api/drafts/drf_20260605_0002",
+        json={"status": "READY_FOR_AMAZON_DRAFT"},
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Use manual approval to set READY_FOR_AMAZON_DRAFT."
+
+
+def test_draft_artifact_links_are_available() -> None:
+    response = client.get("/api/drafts/drf_20260605_0001/artifacts")
+    assert response.status_code == 200
+    artifacts = response.json()
+    assert any(artifact["key"] == "listing_fields" for artifact in artifacts)
+    assert any(artifact["key"] == "change_history" for artifact in artifacts)
+
+
 def test_draft_events_are_available() -> None:
     response = client.get("/api/drafts/drf_20260605_0001/events")
     assert response.status_code == 200

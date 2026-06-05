@@ -1,15 +1,34 @@
 <script setup lang="ts">
 import type { Draft } from '~/composables/useApi'
 
-defineProps<{
+const props = defineProps<{
   draft: Draft
 }>()
+
+const base = useApiBase()
+const imageFailed = ref(false)
+const previewUrl = computed(() => `${base}/api/drafts/${props.draft.draft_id}/design/final.png`)
+const hasFinalPng = computed(() => Boolean(props.draft.design?.final_png) && !imageFailed.value)
+
+watch(
+  () => props.draft.draft_id,
+  () => {
+    imageFailed.value = false
+  },
+)
 </script>
 
 <template>
   <div>
     <div class="design-preview">
-      <div class="print-art">
+      <img
+        v-if="hasFinalPng"
+        class="print-art-image"
+        :src="previewUrl"
+        :alt="`${draft.listing_groups.English.design_title} final PNG`"
+        @error="imageFailed = true"
+      >
+      <div v-else class="print-art">
         <strong>{{ draft.listing_groups.English.design_title }}</strong>
         <span>{{ draft.design.theme }}</span>
       </div>

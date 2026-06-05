@@ -3,14 +3,31 @@ ready_for_amazon_draft:
   transparent_background: true
   correct_resolution: true
   file_size_under_limit: true
+  placement_metadata_valid: true
   design_not_too_small: true
   design_not_cropped: true
   trademark_precheck: "pass"
   amazon_policy_precheck: "pass"
+  human_review_required: false
+  compliance_blocked: false
   product_type_terms_removed: true
   listing_min_lengths_passed: true
   selected_marketplaces_have_copy: true
+  listing_field_lengths_passed: true
+  listing_punctuation_passed: true
+  marketplace_language_copy_passed: true
+  translation_checks_passed: true
   price_config_exists: true
+
+artwork:
+  max_file_size_mb: 25
+  transparent_alpha_threshold: 0
+  min_design_width_ratio: 0.25
+  min_design_height_ratio: 0.25
+  min_design_area_ratio: 0.08
+  min_edge_margin_px: 20
+  allowed_placements:
+    - large_front
 
 banned_product_type_terms:
   english:
@@ -31,3 +48,84 @@ banned_product_type_terms:
     - water bottle
     - hat
     - visor
+    - baseball cap
+    - case
+    - phone cover
+    - zip hoodie
+  german:
+    - shirt
+    - t-shirt
+    - hoodie
+    - kapuzenpullover
+    - tasse
+    - beutel
+    - kissen
+    - handyhuelle
+    - handyhülle
+    - trinkflasche
+    - muetze
+    - mütze
+  french:
+    - t-shirt
+    - sweat
+    - sweat à capuche
+    - tasse
+    - sac
+    - coussin
+    - coque
+    - gourde
+    - casquette
+  italian:
+    - maglietta
+    - felpa
+    - felpa con cappuccio
+    - tazza
+    - borsa
+    - cuscino
+    - cover
+    - borraccia
+    - cappello
+  spanish:
+    - camiseta
+    - sudadera
+    - sudadera con capucha
+    - taza
+    - bolsa
+    - almohada
+    - funda
+    - botella de agua
+    - gorra
+  japanese:
+    - シャツ
+    - tシャツ
+    - パーカー
+    - マグ
+    - バッグ
+    - 枕
+    - スマホケース
+    - タンブラー
+    - 帽子
+
+listing_field_constraints:
+  design_title:
+    min: 3
+    max: 60
+  brand:
+    min: 3
+    max: 50
+  feature_bullet_1:
+    min: 10
+    max: 256
+  feature_bullet_2:
+    min: 10
+    max: 256
+  product_description:
+    min: 80
+    max: 2000
+
+translation_required_locales:
+  - de
+  - fr
+  - it
+  - es
+  - ja

@@ -16,6 +16,30 @@ REQUIRED_LISTING_FIELDS = [
     "product_description",
 ]
 
+DEFAULT_FIELD_CONSTRAINTS = {
+    "design_title": {"min": 3, "max": 60},
+    "brand": {"min": 3, "max": 50},
+    "feature_bullet_1": {"min": 10, "max": 256},
+    "feature_bullet_2": {"min": 10, "max": 256},
+    "product_description": {"min": 80, "max": 2000},
+}
+
+TRANSLATION_MARKERS = {
+    "de": [" der ", " die ", " das ", " und ", " fuer ", " für ", " geschenk "],
+    "fr": [" le ", " la ", " les ", " et ", " pour ", " cadeau "],
+    "it": [" il ", " lo ", " gli ", " e ", " per ", " regalo "],
+    "es": [" el ", " la ", " los ", " y ", " para ", " regalo "],
+}
+
+ENGLISH_BOILERPLATE_PHRASES = [
+    "original",
+    "gift idea",
+    "this original design",
+    "made for",
+    "weekends",
+    "everyday fans",
+]
+
 
 @dataclass(frozen=True)
 class ListingValidationResult:
@@ -23,6 +47,10 @@ class ListingValidationResult:
     min_description_length_passed: bool
     required_fields_passed: bool
     selected_marketplaces_have_copy: bool
+    field_lengths_passed: bool
+    punctuation_passed: bool
+    marketplace_language_copy_passed: bool
+    translation_checks_passed: bool
     warnings: list[str]
 
     @property
@@ -32,6 +60,10 @@ class ListingValidationResult:
             and self.min_description_length_passed
             and self.required_fields_passed
             and self.selected_marketplaces_have_copy
+            and self.field_lengths_passed
+            and self.punctuation_passed
+            and self.marketplace_language_copy_passed
+            and self.translation_checks_passed
         )
 
     def to_payload(self) -> dict[str, Any]:
@@ -40,6 +72,10 @@ class ListingValidationResult:
             "min_description_length_passed": self.min_description_length_passed,
             "required_fields_passed": self.required_fields_passed,
             "selected_marketplaces_have_copy": self.selected_marketplaces_have_copy,
+            "field_lengths_passed": self.field_lengths_passed,
+            "punctuation_passed": self.punctuation_passed,
+            "marketplace_language_copy_passed": self.marketplace_language_copy_passed,
+            "translation_checks_passed": self.translation_checks_passed,
             "warnings": self.warnings,
         }
 
@@ -83,26 +119,80 @@ def generate_listing_groups(
 def validate_listing_groups(
     listing_groups: dict[str, dict[str, Any]],
     selected_marketplaces: list[str],
-    banned_terms: list[str],
+    banned_terms: list[str] | dict[str, list[str]],
     min_description_length: int = 80,
+    field_constraints: dict[str, dict[str, int]] | None = None,
+    marketplace_language_map: dict[str, str] | None = None,
+    translation_required_locales: list[str] | None = None,
 ) -> ListingValidationResult:
     warnings: list[str] = []
     found_terms: list[str] = []
     required_fields_passed = True
     min_description_length_passed = True
+    field_lengths_passed = True
+    punctuation_passed = True
+    marketplace_language_copy_passed = True
+    translation_checks_passed = True
     copied_marketplaces: set[str] = set()
 
-    term_patterns = {
-        term: re.compile(rf"(?<![a-z0-9]){re.escape(term.lower())}(?![a-z0-9])")
-        for term in banned_terms
-    }
+    constraints = field_constraints or DEFAULT_FIELD_CONSTRAINTS
+    translation_required = set(translation_required_locales or ["de", "fr", "it", "es", "ja"])
+    if isinstance(banned_terms, dict):
+        terms_by_language = {
+            language.lower(): terms for language, terms in banned_terms.items()
+        }
+    else:
+        terms_by_language = {"all": banned_terms}
 
     for language, listing in listing_groups.items():
+        locale = str(listing.get("locale", "")).lower()
+        listing_marketplaces = list(listing.get("marketplaces", []))
+        copied_marketplaces.update(listing_marketplaces)
+
+        expected_languages = {
+            marketplace_language_map.get(marketplace)
+            for marketplace in listing_marketplaces
+            if marketplace_language_map and marketplace in marketplace_language_map
+        }
+        expected_languages.discard(None)
+        if expected_languages and language not in expected_languages:
+            marketplace_language_copy_passed = False
+            warnings.append(
+                f"{language} listing is assigned to marketplace language(s): {', '.join(sorted(expected_languages))}."
+            )
+
+        language_terms = [
+            *terms_by_language.get("all", []),
+            *terms_by_language.get(language.lower(), []),
+            *terms_by_language.get(locale, []),
+        ]
+        term_patterns = {
+            term: re.compile(rf"(?<![a-z0-9]){re.escape(term.lower())}(?![a-z0-9])")
+            for term in language_terms
+        }
+
+        listing_text_parts: list[str] = []
         for field in REQUIRED_LISTING_FIELDS:
             value = str(listing.get(field, "")).strip()
+            listing_text_parts.append(value)
             if not value:
                 required_fields_passed = False
                 warnings.append(f"{language}.{field} is required.")
+            field_limits = constraints.get(field, {})
+            min_length = int(field_limits.get("min", 1))
+            max_length = int(field_limits.get("max", 2000))
+            if value and len(value) < min_length:
+                field_lengths_passed = False
+                warnings.append(f"{language}.{field} is shorter than {min_length} characters.")
+            if len(value) > max_length:
+                field_lengths_passed = False
+                warnings.append(f"{language}.{field} exceeds {max_length} characters.")
+            if re.search(r"[!?.,]{3,}", value):
+                punctuation_passed = False
+                warnings.append(f"{language}.{field} has repeated punctuation.")
+            if value.count("!") > 1:
+                punctuation_passed = False
+                warnings.append(f"{language}.{field} has too many exclamation marks.")
             lowered = value.lower()
             for term, pattern in term_patterns.items():
                 if pattern.search(lowered):
@@ -113,7 +203,16 @@ def validate_listing_groups(
             min_description_length_passed = False
             warnings.append(f"{language}.product_description is too short.")
 
-        copied_marketplaces.update(listing.get("marketplaces", []))
+        if locale in translation_required:
+            text = f" {' '.join(listing_text_parts).lower()} "
+            if locale == "ja":
+                has_locale_signal = bool(re.search(r"[\u3040-\u30ff\u3400-\u9fff]", text))
+            else:
+                has_locale_signal = any(marker in text for marker in TRANSLATION_MARKERS.get(locale, []))
+            copied_english = any(phrase in text for phrase in ENGLISH_BOILERPLATE_PHRASES)
+            if not has_locale_signal or copied_english:
+                translation_checks_passed = False
+                warnings.append(f"{language} listing requires reviewed {locale} copy.")
 
     missing_copy = sorted(set(selected_marketplaces) - copied_marketplaces)
     selected_marketplaces_have_copy = not missing_copy
@@ -128,6 +227,9 @@ def validate_listing_groups(
         min_description_length_passed=min_description_length_passed,
         required_fields_passed=required_fields_passed,
         selected_marketplaces_have_copy=selected_marketplaces_have_copy,
+        field_lengths_passed=field_lengths_passed,
+        punctuation_passed=punctuation_passed,
+        marketplace_language_copy_passed=marketplace_language_copy_passed,
+        translation_checks_passed=translation_checks_passed,
         warnings=warnings,
     )
-

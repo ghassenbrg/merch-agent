@@ -1030,28 +1030,19 @@ Goal: only after dry-run safety is tested, save one Amazon draft manually.
 - Update local status to `AMAZON_DRAFT_SAVED` or `AMAZON_DRAFT_FAILED`.
 - Never publish or submit for review.
 
-### Latest Completed Milestone: Local Dashboard Workflow
+### Latest Completed Milestone: Research and Candidate Discovery Expansion
 
-Completed after the initial dashboard redesign:
+Completed after Production Readiness Roadmap Phase 4:
 
-- Repo hygiene was checked and generated artifacts are ignored, including Nuxt build output, Python caches, SQLite files, generated screenshots, and `data/frontend-preview.log`.
-- Backend now exposes the dashboard support APIs:
-  - `GET /api/runs`
-  - `GET /api/runs/{run_id}`
-  - `GET /api/config`
-  - `PATCH /api/settings`
-  - `GET /api/drafts/{draft_id}/events`
-  - `GET /api/drafts/{draft_id}/design/final.png`
-- SQLite now records run-to-draft links, draft events/status history, and local settings overrides.
-- The Nuxt dashboard has real data-backed pages:
-  - `frontend/pages/drafts/index.vue`
-  - `frontend/pages/drafts/[id].vue`
-  - `frontend/pages/runs/index.vue`
-  - `frontend/pages/settings.vue`
-- Draft detail review includes products, selected/excluded marketplaces, validation, score, listing groups, draft events, readiness checks, and the simulated Amazon Draft Assist action.
-- Runs page shows run history, generated draft counts, outcomes, logs, and draft links.
-- Settings page shows YAML-derived config/contracts for marketplaces, products, prices, validation, language sections, and Amazon Draft Assist guardrails.
-- Focused backend tests were added for the new endpoints.
+- Added `config/candidate_sources.yaml` with deterministic local candidate sources, a seedable local generator, duplicate/cooldown settings, conservative precheck terms, and default-off external research adapter stubs.
+- `backend/app/services/local_package_workflow/candidates.py` now discovers varied local candidates without external services, records source/search phrase/score inputs, audits accepted and skipped candidates, detects duplicate niches and keyword signatures, applies niche cooldowns, and blocks conservative term/trademark risks before scoring.
+- Autopilot now uses candidate discovery instead of cycling fixed fixtures, writes `data/logs/<run_id>_candidate_audit.json`, logs every skipped candidate reason, and stores accepted candidate research metadata in each draft.
+- Added snapshot-backed research evidence enforcement for production autopilot mode: live research must be collected and persisted before scoring, and scoring consumes only saved snapshots.
+- Added live, config-gated research adapters for demand, trend, competition, and saturation signals, with deterministic fixture snapshots used by tests.
+- Production mode fails clearly without research evidence; unavailable external research cannot silently create packages.
+- Package assembly writes `data/drafts/<draft_id>/candidate_research.json` alongside draft JSON, listing fields, validation report, and design metadata.
+- External research remains optional, disabled by default, config-gated, and not required by tests.
+- No Amazon interaction was added or performed.
 
 Verification completed:
 
@@ -1061,54 +1052,477 @@ cd frontend && npm run build
 cd frontend && npm audit --audit-level=moderate
 ```
 
-Playwright QA was run against production preview on desktop and mobile for:
+Production-preview browser QA was run against desktop and mobile viewport routes:
 
 ```text
 /
 /drafts
-/drafts/drf_20260605_0001
+/drafts/drf_auto_e66ee6a9be
 /runs
 /settings
 ```
 
-Result: all routes returned 200, no console/page errors, and no horizontal overflow after the mobile table-row fix.
+Result: pages rendered nonblank, no framework overlays, no console warnings/errors, no horizontal overflow, app-shell navigation worked, the fresh generated draft detail loaded its real `4500x5400` PNG preview at a `390px` mobile viewport, and the local autopilot button completed with "No Amazon interaction occurred."
 
 ### Immediate Next Session Recommendation
 
-Start item 4 from the Next Work Sequence: replace the fake autopilot with a real deterministic local package workflow. Keep it fixture-driven first so tests are stable and the UI has real local packages before any external research, image generation, or Amazon browser work exists.
+Start Phase 6 from the Production Readiness Roadmap: dashboard review, editing, and approval workflow. Keep all Amazon Draft Assist work simulated and manual only; do not start Amazon dry-run or live automation work.
 
-Do the next session in this order:
+For every future session:
 
-1. Baseline verify:
+1. Read this file first.
+2. Run baseline verification:
    - `cd backend && . .venv/bin/activate && pytest -q`
    - `cd frontend && npm run build`
    - `cd frontend && npm audit --audit-level=moderate`
-2. Add deterministic agent/domain modules:
-   - product template resolver
-   - marketplace/language resolver
-   - niche candidate model
-   - scoring model
-   - conservative compliance gate
-   - design brief generator
-   - listing generator
-   - listing validator
-   - package assembler
-3. Replace the fake autopilot service path so `/api/workflows/autopilot/run` creates real local draft package artifacts under `data/drafts/`, while continuing to write SQLite draft/run records for the dashboard.
-4. Keep all new workflow tests fixture-driven and deterministic.
-5. Ensure generated packages include:
-   - draft JSON
-   - listing fields
-   - validation report
-   - design metadata
-   - final status
-6. Re-run backend tests, frontend build, audit, and Playwright desktop/mobile QA.
+3. Work only on Phase 6 unless the user explicitly changes scope.
+4. Re-run backend tests, frontend build, audit, and production-preview browser QA.
+5. Update this plan with completed phase notes and the next session recommendation.
 
-Out of scope for the next session:
+## Production Readiness Roadmap
 
-- Do not implement live Amazon browser automation.
-- Do not connect external research APIs yet unless explicitly requested.
-- Do not connect real image generation yet; use deterministic design metadata/briefs and placeholder-safe package contracts.
-- Do not publish, submit for review, batch upload, edit live listings, or click dangerous Amazon actions.
+Use these phases sequentially across new Codex sessions. Do not skip a safety gate just because the implementation appears small.
+
+### Phase 0: Session Baseline and Handoff Discipline
+
+Status: ongoing requirement.
+
+Goal: keep each session restartable and prevent accidental Amazon work.
+
+Scope:
+
+- Read `MERCH_AGENT_PLAN.md`.
+- Inspect `git status --short --untracked-files=all`.
+- Run backend tests, frontend production build, and frontend audit.
+- Use production frontend preview for browser QA, not Nuxt dev mode.
+- Keep generated runtime files ignored.
+
+Exit criteria:
+
+- Baseline commands pass or known failures are documented before edits.
+- No unrelated user changes are reverted.
+- The current phase and next phase are written down in this file.
+
+Copy/paste prompt:
+
+```text
+We are continuing the Merch Agent project in /Users/ghassenbrg/git/merch-agent.
+Read MERCH_AGENT_PLAN.md first. Work only on the next incomplete phase in the Production Readiness Roadmap.
+First run:
+cd backend && . .venv/bin/activate && pytest -q
+cd frontend && npm run build
+cd frontend && npm audit --audit-level=moderate
+Then implement the phase, verify again, run production-preview browser QA, and update MERCH_AGENT_PLAN.md.
+Never let autopilot touch Amazon. Do not publish, submit for review, batch upload, edit live listings, or click dangerous Amazon actions.
+```
+
+### Phase 1: Deterministic Local Package Workflow
+
+Status: completed.
+
+Goal: replace fake autopilot samples with deterministic local package generation and zero Amazon interaction.
+
+Completed scope:
+
+- Product template resolver using `config/product_templates.yaml`.
+- Marketplace/language resolver using `config/marketplaces.yaml`.
+- Fixture candidate model.
+- Scoring model.
+- Conservative compliance gate.
+- Design brief metadata generator.
+- Listing generator and validator.
+- Package assembler writing artifacts under `data/drafts/`.
+- SQLite draft/run records for dashboard.
+- Focused backend tests.
+
+Required behavior to preserve:
+
+- `/api/workflows/autopilot/run` creates local packages only.
+- `touch_amazon: true` is refused.
+- Generated packages include draft JSON, listing fields, validation report, design metadata, and final status.
+- No external services are required.
+
+### Phase 2: Artwork Pipeline Contracts and PNG Validation
+
+Status: completed.
+
+Goal: validate artwork readiness locally before any upload workflow exists.
+
+Completed scope:
+
+- Add PNG validation service:
+  - dimensions match selected product template
+  - transparent background required
+  - file size under configured limit
+  - placement metadata exists and is valid
+  - design not too small
+  - design not cropped
+- Add fixture PNGs for pass/fail cases.
+- Add config-driven thresholds under `config/validation.yaml`.
+- Store artwork validation output in package `validation_report.json`.
+- Keep design generation metadata-only unless explicitly starting Phase 3.
+- Add focused backend tests for each validation rule.
+
+Completed notes:
+
+- `backend/app/services/artwork_validation_service.py` validates final PNG dimensions, transparent background corners, file size, placement metadata, minimum visible bounds, and crop margins with Pillow.
+- `config/validation.yaml` now owns artwork thresholds, including max file size, transparency threshold, minimum design ratios, crop margin, and allowed placements.
+- Local package assembly writes structured artwork validation output into `validation_report.json`; metadata-only drafts now stop at `ARTWORK_PENDING` with `artwork_pending: true` and `png_valid: false`.
+- Draft readiness and manual approval cannot mark a package `READY_FOR_AMAZON_DRAFT` unless artwork validation passes.
+- Fixture PNGs cover valid, wrong dimensions, opaque background, too-small design, cropped design, missing PNG, file-size threshold, and placement metadata failures.
+
+Exit criteria:
+
+- A package cannot become `READY_FOR_AMAZON_DRAFT` unless artwork validation passes when final PNG is present.
+- Missing PNGs are represented explicitly as "artwork pending" or equivalent, not silently treated as valid.
+- Backend tests pass.
+- Production-preview browser QA passes for `/`, `/drafts`, a generated draft detail route, `/runs`, and `/settings`.
+
+Copy/paste prompt:
+
+```text
+Implement Phase 2 from MERCH_AGENT_PLAN.md: Artwork Pipeline Contracts and PNG Validation.
+Do not implement image generation, Amazon dry-run, or live Amazon automation.
+Add local PNG validation, fixture images, config thresholds, validation report wiring, and focused tests.
+After implementation run backend tests, frontend build, audit, and production-preview browser QA.
+```
+
+### Phase 3: Local Artwork Generation and Design Asset Pipeline
+
+Status: completed.
+
+Goal: create real local printable artwork files without Amazon interaction.
+
+Scope:
+
+- Add a deterministic local artwork renderer first, preferably SVG-to-PNG or Pillow-based, so tests stay stable.
+- Generate transparent PNGs at the selected product template size.
+- Save design source, render metadata, final PNG, and validation result under local package folders.
+- Keep image-generation APIs optional and disabled by default.
+- Add tests that rendered PNGs pass Phase 2 validation.
+- Update dashboard design preview to show real final PNG when present, with fallback to metadata preview.
+
+Exit criteria:
+
+- Autopilot can create reviewable local packages with real transparent PNGs.
+- PNG validation gates status.
+- No external image generation is required for tests or default operation.
+
+Completed notes:
+
+- Deterministic local artwork rendering is implemented with Pillow.
+- The renderer writes source JSON, render metadata, and final transparent PNGs under `data/designs/<draft_id>/`.
+- Package assembly validates generated PNGs with the Phase 2 validator before allowing `READY_FOR_AMAZON_DRAFT`.
+- The dashboard design preview uses the real final PNG endpoint when present and falls back to metadata preview if the image is unavailable.
+- Backend tests cover generated assets, PNG endpoint delivery, and readiness status.
+
+### Phase 4: Research and Candidate Discovery Expansion
+
+Status: completed.
+
+Goal: move beyond fixed candidates while keeping deterministic, auditable behavior.
+
+Completed scope:
+
+- Added local YAML candidate sources and a seedable deterministic generator.
+- Added default-off external research adapters behind explicit config flags.
+- Recorded candidate source, search phrase, score inputs, accepted/skipped decisions, and rejection reasons.
+- Added duplicate niche detection, duplicate keyword-signature detection, and niche cooldown checks.
+- Added conservative blocked-term and trademark prechecks before scoring.
+- Added fixture-driven tests for deterministic generation, precheck skips, default-off external research, and persisted candidate audit artifacts.
+- Added production-mode research evidence enforcement: live research results are saved as local snapshots before scoring, scores can be computed from saved snapshots, and production runs fail clearly when research is unavailable.
+- Added saved fixture research snapshots for deterministic tests and config-gated live adapters covering demand, trend, competition, and saturation signals.
+
+Exit criteria:
+
+- Autopilot can generate varied local candidates without external services.
+- External research is off by default and never required for tests; fixture snapshots keep research scoring deterministic.
+- Every skipped candidate has an auditable reason.
+- Production mode cannot score or assemble packages without complete research evidence.
+
+### Phase 5: Compliance, Policy, and Listing Hardening
+
+Status: completed.
+
+Goal: make local review strict enough for real Merch on Demand draft preparation.
+
+Completed scope:
+
+- Expanded deterministic blocked and risky policy dictionaries for brands/trademarks, protected events/leagues, public figures, copyrighted characters, medical claims, tragedy/disaster references, misleading product claims, and ambiguous review phrases.
+- Added phrase-level compliance matching with three outcomes: `pass`, `blocked`, and `human_review_required`.
+- Kept blocked policy hits out of package assembly while allowing ambiguous packages to assemble only as `HUMAN_REVIEW_REQUIRED` with Amazon draft eligibility disabled.
+- Added config-driven listing field constraints, expanded product-type term dictionaries across supported language groups, punctuation checks, marketplace-language copy checks, and reviewed-translation checks for non-English locales.
+- Added validation payload fields for human review, compliance block state, listing field lengths, punctuation, marketplace language copy, and translation checks.
+- Updated manual approval readiness so human-review-required packages cannot become `READY_FOR_AMAZON_DRAFT`.
+- Updated frontend validation/readiness surfaces to show the new local gates.
+- Added focused backend tests for allowed, blocked, ambiguous, human-review status, product-term, length, punctuation, marketplace-language, and translation examples.
+
+Exit criteria:
+
+- Risky packages are blocked before draft assembly.
+- Ambiguous packages cannot become Amazon-draft-ready without manual approval.
+- Listing copy passes configured field constraints for every selected marketplace language section.
+
+Verification:
+
+```bash
+cd backend && . .venv/bin/activate && pytest -q
+# 40 passed
+
+cd frontend && npm run build
+# passed
+
+cd frontend && npm audit --audit-level=moderate
+# found 0 vulnerabilities
+```
+
+Production-preview browser QA:
+
+```text
+Backend:  http://127.0.0.1:8000
+Frontend: http://127.0.0.1:3000
+Generated draft checked: drf_auto_0541c8bff1
+Routes: /, /drafts, /drafts/drf_auto_0541c8bff1, /runs, /settings
+Viewports: 1280x720 desktop, 390x844 mobile
+```
+
+Result: in-app Browser DOM/console checks passed with nonblank content, no framework overlays, no console warnings/errors, and no mobile horizontal overflow. The local "Run Local Autopilot" button created a local package and reported completion without Amazon interaction. Browser screenshot capture timed out in the in-app Browser runtime, so screenshot evidence was captured with the repo's Playwright dev dependency and saved under `/tmp/merch-agent-phase5-*.png`.
+
+### Phase 6: Dashboard Review, Editing, and Approval Workflow
+
+Status: complete.
+
+Goal: make the app usable for a human operator reviewing real local packages.
+
+Scope:
+
+- Add draft edit persistence for listing fields, selected marketplaces, price, and status.
+- Add manual approval workflow with event history.
+- Add artifact download/view links.
+- Add package diff or change history for listing edits.
+- Add bulk local generation controls, but no Amazon batch actions.
+- Add better empty/error/loading states for generated package artifacts.
+
+Exit criteria:
+
+- A user can review, edit, reject, archive, and approve a package from the UI.
+- UI cannot start Amazon draft assist unless status and validation gates pass.
+- Browser QA covers dashboard, draft list, detail, runs, and settings on desktop/mobile.
+
+Implemented:
+
+- Added draft edit persistence through `PATCH /api/drafts/{draft_id}` for listing fields, selected marketplaces, price, and local mutable statuses.
+- Direct status edits to `READY_FOR_AMAZON_DRAFT` and `AMAZON_DRAFT_SAVED` are rejected; manual approval remains the only path that recomputes gates and sets Amazon-draft readiness.
+- Listing/marketplace/price/status edits append local change history, write draft events, update artifact snapshots, clear Amazon Draft Assist eligibility, and require manual re-approval.
+- Added artifact list/download endpoints for final PNG, draft JSON, listing fields, validation report, change history, design source, and render metadata.
+- Added dashboard bulk local generation controls that call local autopilot with `touch_amazon: false`; no Amazon batch actions were added.
+- Added editable listing UI, review edit controls, artifact links, listing change history, archive action, and clearer empty/error/loading states.
+- Hardened the Amazon Draft Assist UI button so it requires `READY_FOR_AMAZON_DRAFT`, backend eligibility, and unsaved Amazon state.
+- Added focused backend tests for draft edit persistence, readiness bypass rejection, artifact links, and event/change history.
+
+Verification:
+
+```bash
+cd backend && . .venv/bin/activate && pytest -q
+# 43 passed
+
+cd frontend && npm run build
+# passed
+
+cd frontend && npm audit --audit-level=moderate
+# found 0 vulnerabilities
+```
+
+Production-preview browser QA:
+
+```text
+Backend:  http://127.0.0.1:8000
+Frontend: http://127.0.0.1:3000
+Generated draft checked: drf_auto_6854427f74
+Generated run checked: run_dc13ae778ed0
+Routes: /, /drafts, /drafts/drf_auto_6854427f74, /runs, /settings
+Viewports: 1280x720 desktop, 390x844 mobile
+```
+
+Result: in-app Browser DOM/console checks passed with nonblank content, no framework overlays, no console warnings/errors, and no horizontal overflow on desktop or mobile. The generated draft edit flow was exercised: a listing title edit persisted locally, the draft changed from `READY_FOR_AMAZON_DRAFT` to `LISTING_READY`, draft event/change history appeared, and `Save as Amazon Draft` became disabled. Browser screenshot capture timed out in the in-app Browser runtime, so screenshot evidence was captured with the repo's Playwright dependency and saved under `/tmp/merch-agent-phase6-desktop.png` and `/tmp/merch-agent-phase6-mobile.png`.
+
+### Phase 7: Data Model, Migrations, and Local Operations Hardening
+
+Status: pending.
+
+Goal: make backend data durable and maintainable before production use.
+
+Scope:
+
+- Replace JSON-only persistence with explicit tables or repositories for:
+  - drafts
+  - runs
+  - draft events
+  - validation results
+  - listing groups
+  - design artifacts
+  - Amazon draft attempts
+- Add migrations.
+- Add database reset/seed scripts.
+- Add backups/export for local packages.
+- Add structured logs.
+- Add config validation on startup.
+
+Exit criteria:
+
+- Existing data survives migrations.
+- Tests cover migrations or repository behavior.
+- Local package exports can be restored or inspected without the UI.
+
+### Phase 8: Amazon Draft Assist Dry Run
+
+Status: pending.
+
+Goal: prove browser automation safety without touching a live Amazon draft.
+
+Hard gate before starting:
+
+- Phases 2 through 7 must be complete.
+- User must explicitly request Amazon dry-run work.
+
+Scope:
+
+- Implement Playwright dry-run operator with a controlled browser profile.
+- Use selector map from `config/amazon_upload_ui.yaml`.
+- Add draft lock before starting.
+- Capture screenshots at each dry-run step.
+- Add dangerous-action blocker tests for labels including:
+  - Publish
+  - Submit
+  - Submit for review
+  - Make live
+  - Update live listing
+  - Create product
+- Add UI confirmation modal with exact safety copy.
+- Never click live Amazon actions.
+
+Exit criteria:
+
+- Dry-run proves the operator would fill one package only.
+- Dangerous action blocker tests pass.
+- No live Amazon draft is saved in this phase.
+
+### Phase 9: Controlled Live Amazon Draft Save
+
+Status: pending.
+
+Goal: save exactly one Amazon draft after explicit user action.
+
+Hard gate before starting:
+
+- Phase 8 must pass.
+- User must explicitly request controlled live draft save.
+- The selected package must be `READY_FOR_AMAZON_DRAFT`.
+
+Scope:
+
+- Manual UI trigger only.
+- One package per run.
+- Browser profile and session are visible/controlled.
+- Fill selected product, artwork, price, marketplaces, and listing fields.
+- Select "No, I'll provide my own translations" where applicable.
+- Save as draft only.
+- Capture screenshots before and after save.
+- Update local status to `AMAZON_DRAFT_SAVED` or `AMAZON_DRAFT_FAILED`.
+
+Non-negotiable prohibitions:
+
+- Never publish.
+- Never submit for review.
+- Never batch upload.
+- Never edit live listings.
+- Never click dangerous Amazon actions.
+
+Exit criteria:
+
+- One controlled live draft save succeeds or fails with screenshots and logs.
+- Local status and event history are accurate.
+- User still manually reviews/publishes inside Merch.
+
+### Phase 10: Scheduling and Autopilot Operations
+
+Status: pending.
+
+Goal: support unattended local package generation while preserving Amazon separation.
+
+Scope:
+
+- Add local scheduler for autopilot package generation.
+- Add run limits, cooldowns, stop switches, and disk usage limits.
+- Add notification or dashboard indicators for completed local packages.
+- Add config for max packages per run/day.
+- Ensure scheduled jobs never invoke Amazon Draft Assist.
+
+Exit criteria:
+
+- Scheduled autopilot produces local packages only.
+- Stop switch halts queued/running local jobs.
+- Run history clearly distinguishes scheduled vs manual runs.
+
+### Phase 11: Security, Access Control, and Deployment Readiness
+
+Status: pending.
+
+Goal: make the app safe to run beyond a local development shell.
+
+Scope:
+
+- Add environment config for production.
+- Add authentication if exposed beyond localhost.
+- Add CSRF/CORS hardening.
+- Add secrets handling.
+- Add dependency audit process.
+- Add API input validation and rate limits where needed.
+- Add deployment scripts or Docker setup.
+- Add health checks.
+- Add log retention.
+
+Exit criteria:
+
+- App can run from a documented production-like command or container.
+- Secrets are not committed.
+- Localhost-only assumptions are documented or removed.
+- Basic security review passes.
+
+### Phase 12: Beta Runbook and Production Acceptance
+
+Status: pending.
+
+Goal: define when the system is production-ready to use.
+
+Scope:
+
+- Create operator runbook:
+  - start/stop services
+  - generate local packages
+  - review and approve packages
+  - run Amazon Draft Assist
+  - recover from failed draft attempts
+  - backup/export data
+- Add production acceptance checklist.
+- Run a beta cycle:
+  - generate packages locally
+  - review and reject/approve
+  - save one draft manually through controlled assist
+  - verify logs/screenshots/status history
+- Document known limitations.
+
+Production-ready criteria:
+
+- All tests pass.
+- Frontend production build and audit pass.
+- Production-preview browser QA passes on desktop and mobile.
+- Autopilot cannot touch Amazon by design and by test.
+- Amazon Draft Assist is manual, one draft at a time, save-draft-only, and guarded by tests.
+- Dangerous Amazon actions are blocked by tests and runtime checks.
+- Local package artifacts are complete and restorable.
+- Operator runbook is accurate.
+- A human remains responsible for final Amazon review and publishing.
 
 ## Copy/Paste Prompt For Next Session
 
@@ -1117,11 +1531,14 @@ Use this prompt in a new Codex session from `/Users/ghassenbrg/git/merch-agent`:
 ```text
 We are continuing the Merch Agent project in /Users/ghassenbrg/git/merch-agent.
 
-Read MERCH_AGENT_PLAN.md first, especially "Next Session Handoff Plan", "Latest Completed Milestone: Local Dashboard Workflow", and "Immediate Next Session Recommendation".
+Read MERCH_AGENT_PLAN.md first, especially:
+- "Immediate Next Session Recommendation"
+- "Production Readiness Roadmap"
+- the next incomplete phase
 
 Current state:
-- FastAPI backend has SQLite seed data, draft APIs, workflow API, validation, simulated Amazon Draft Assist, run history APIs, config/settings APIs, draft event APIs, and focused tests.
-- Nuxt 3 frontend has the redesigned dashboard UI plus real Drafts, draft detail, Runs, and Settings pages backed by the API.
+- FastAPI backend has SQLite seed data, draft APIs, workflow APIs, validation, simulated Amazon Draft Assist, run history APIs, config/settings APIs, draft event APIs, deterministic local package workflow, local artwork PNG validation contracts, deterministic local PNG rendering, Phase 4 candidate discovery/auditing, production-mode research snapshot enforcement, Phase 5 compliance/listing hardening, and focused tests.
+- Nuxt 3 frontend has the redesigned dashboard UI plus real Drafts, draft detail, Runs, and Settings pages backed by the API; draft detail shows the real generated final PNG when present.
 - Production frontend preview should be used, not Nuxt dev mode, because dev mode previously had a Vite IPC socket issue on this machine.
 - Generated build/runtime artifacts are ignored.
 
@@ -1137,25 +1554,15 @@ cd frontend && npm run build
 cd frontend && npm audit --audit-level=moderate
 
 Next milestone:
-Replace the fake autopilot with a real deterministic local package workflow, still with zero Amazon interaction and no external services required.
+Implement Phase 6 from the Production Readiness Roadmap: Dashboard Review, Editing, and Approval Workflow.
 
 Implement in this order:
-1. Product template resolver using config/product_templates.yaml.
-2. Marketplace/language resolver using config/marketplaces.yaml.
-3. Deterministic niche candidate model with local fixture candidates.
-4. Scoring model that produces demand/trend/saturation/compliance/overall values.
-5. Conservative compliance gate that blocks risky candidates before package assembly.
-6. Design brief generator that creates auditable design metadata, not real image generation yet.
-7. Listing generator and listing validator that enforce banned product-type terms and required fields.
-8. Package assembler that writes local artifacts under data/drafts/ and creates SQLite draft/run records for the existing dashboard.
-9. Focused backend tests for each resolver/generator/gate plus the autopilot endpoint.
-
-Generated local packages must include:
-- draft JSON
-- listing fields
-- validation report
-- design metadata
-- final status, preferably READY_FOR_AMAZON_DRAFT only when all local checks pass
+1. Add draft edit persistence for listing fields, selected marketplaces, price, and status.
+2. Add manual approval workflow with event history.
+3. Add artifact download/view links.
+4. Add package diff or change history for listing edits.
+5. Add bulk local generation controls, but no Amazon batch actions.
+6. Add better empty/error/loading states for generated package artifacts.
 
 After implementation:
 cd backend && . .venv/bin/activate && pytest -q
@@ -1169,5 +1576,5 @@ Then run Playwright desktop/mobile QA against production preview for:
 /runs
 /settings
 
-Do not start Amazon dry-run or live automation work unless explicitly instructed after this local package workflow is complete.
+Do not start Amazon dry-run or live automation work unless explicitly instructed after dashboard review and data hardening phases are complete.
 ```

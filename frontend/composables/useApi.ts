@@ -18,6 +18,23 @@ export interface DraftEvent {
   created_at: string
 }
 
+export interface DraftChange {
+  field: string
+  before: any
+  after: any
+  created_at: string
+  note: string
+}
+
+export interface DraftArtifact {
+  key: string
+  label: string
+  kind: string
+  path: string
+  url: string
+  exists: boolean
+}
+
 export interface Draft {
   draft_id: string
   status: string
@@ -33,6 +50,8 @@ export interface Draft {
   listing_validation: Record<string, any>
   amazon_draft: Record<string, any>
   price: Record<string, any>
+  research?: Record<string, any> | null
+  change_history: DraftChange[]
 }
 
 export interface StatusResponse {
@@ -74,6 +93,7 @@ export interface ConfigResponse {
   pricing: Record<string, any>
   validation: Record<string, any>
   amazon_upload_ui: Record<string, any>
+  candidate_sources: Record<string, any>
   settings: Record<string, any>
 }
 

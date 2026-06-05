@@ -4,17 +4,30 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
 from app.core.paths import REPO_ROOT
-from app.models.schemas import Draft, DraftEvent, DraftSummary, JobResponse, StatusResponse
+from app.models.schemas import (
+    Draft,
+    DraftArtifact,
+    DraftChange,
+    DraftEvent,
+    DraftPatch,
+    DraftSummary,
+    JobResponse,
+    StatusResponse,
+)
 from app.services.amazon_draft_service import start_amazon_draft
 from app.services.draft_service import (
     archive_draft,
     approve_draft,
+    get_draft_artifacts,
+    get_draft_changes,
     get_draft,
     get_draft_events,
     list_drafts,
+    patch_draft,
     regenerate_design,
     regenerate_listing,
     reject_draft,
+    resolve_draft_artifact,
 )
 
 router = APIRouter()
@@ -38,6 +51,22 @@ def events(draft_id: str) -> list[DraftEvent]:
     return get_draft_events(draft_id)
 
 
+@router.get("/{draft_id}/changes", response_model=list[DraftChange])
+def changes(draft_id: str) -> list[DraftChange]:
+    return get_draft_changes(draft_id)
+
+
+@router.get("/{draft_id}/artifacts", response_model=list[DraftArtifact])
+def artifacts(draft_id: str) -> list[DraftArtifact]:
+    return get_draft_artifacts(draft_id)
+
+
+@router.get("/{draft_id}/artifacts/{artifact_key}")
+def artifact_file(draft_id: str, artifact_key: str) -> FileResponse:
+    path, media_type, filename = resolve_draft_artifact(draft_id, artifact_key)
+    return FileResponse(path, media_type=media_type, filename=filename)
+
+
 @router.get("/{draft_id}/design/final.png")
 def final_png(draft_id: str) -> FileResponse:
     draft = get_draft(draft_id)
@@ -57,6 +86,11 @@ def final_png(draft_id: str) -> FileResponse:
         media_type="image/png",
         filename=f"{draft.draft_id}-final.png",
     )
+
+
+@router.patch("/{draft_id}", response_model=Draft)
+def update(draft_id: str, patch: DraftPatch) -> Draft:
+    return patch_draft(draft_id, patch)
 
 
 @router.post("/{draft_id}/approve", response_model=StatusResponse)

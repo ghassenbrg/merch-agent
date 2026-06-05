@@ -1,0 +1,86 @@
+{
+  "adapter_results": [
+    {
+      "adapter_id": "fixture_demand_snapshot",
+      "confidence": 0.92,
+      "raw": {
+        "query": "Fly fishing grandpas",
+        "source": "saved deterministic fixture"
+      },
+      "signal_type": "demand",
+      "source_url": "fixture://research/cand_fishing_grandpa/demand",
+      "value": 84
+    },
+    {
+      "adapter_id": "fixture_trend_snapshot",
+      "confidence": 0.86,
+      "raw": {
+        "query": "fly fishing grandpa gift",
+        "source": "saved deterministic fixture"
+      },
+      "signal_type": "trend",
+      "source_url": "fixture://research/cand_fishing_grandpa/trend",
+      "value": 76
+    },
+    {
+      "adapter_id": "fixture_competition_snapshot",
+      "confidence": 0.8,
+      "raw": {
+        "query": "fly fishing grandpa design",
+        "source": "saved deterministic fixture"
+      },
+      "signal_type": "competition",
+      "source_url": "fixture://research/cand_fishing_grandpa/competition",
+      "value": 54
+    },
+    {
+      "adapter_id": "fixture_saturation_snapshot",
+      "confidence": 0.82,
+      "raw": {
+        "query": "fly fishing grandpa apparel",
+        "source": "saved deterministic fixture"
+      },
+      "signal_type": "saturation",
+      "source_url": "fixture://research/cand_fishing_grandpa/saturation",
+      "value": 58
+    }
+  ],
+  "candidate_id": "cand_fishing_grandpa",
+  "collected_at": "2026-06-05T00:00:00+00:00",
+  "failures": [],
+  "mode": "fixture",
+  "niche": "Fly fishing grandpas",
+  "signals": {
+    "competition": {
+      "adapters": [
+        "fixture_competition_snapshot"
+      ],
+      "confidence": 0.8,
+      "value": 54
+    },
+    "demand": {
+      "adapters": [
+        "fixture_demand_snapshot"
+      ],
+      "confidence": 0.92,
+      "value": 84
+    },
+    "saturation": {
+      "adapters": [
+        "fixture_saturation_snapshot"
+      ],
+      "confidence": 0.82,
+      "value": 58
+    },
+    "trend": {
+      "adapters": [
+        "fixture_trend_snapshot"
+      ],
+      "confidence": 0.86,
+      "value": 76
+    }
+  },
+  "snapshot_id": "fixture_cand_fishing_grandpa",
+  "source": "saved_fixture_snapshot",
+  "status": "complete"
+}

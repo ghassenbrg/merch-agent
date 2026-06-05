@@ -16,6 +16,7 @@ CONFIG_FILES = {
     "pricing": "pricing.yaml",
     "validation": "validation.yaml",
     "amazon_upload_ui": "amazon_upload_ui.yaml",
+    "candidate_sources": "candidate_sources.yaml",
 }
 
 

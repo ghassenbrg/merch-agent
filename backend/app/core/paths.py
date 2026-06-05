@@ -13,6 +13,7 @@ def ensure_data_directories() -> None:
         DATA_DIR,
         DATA_DIR / "drafts",
         DATA_DIR / "designs",
+        DATA_DIR / "research_snapshots",
         DATA_DIR / "screenshots",
         DATA_DIR / "logs",
     ]:

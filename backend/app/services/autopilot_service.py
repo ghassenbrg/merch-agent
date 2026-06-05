@@ -1,16 +1,32 @@
 from __future__ import annotations
 
+import json
 from uuid import uuid4
 
+from app.core.paths import DATA_DIR
 from app.db.database import get_connection
 from app.models.schemas import AutopilotRequest, RunResponse
 from app.services.config_service import get_config
-from app.services.local_package_workflow.candidates import cycle_fixture_candidates
+from app.services.local_package_workflow.candidates import discover_candidates
 from app.services.local_package_workflow.compliance import run_compliance_gate
 from app.services.local_package_workflow.marketplaces import resolve_marketplaces
 from app.services.local_package_workflow.package_assembler import assemble_local_package
 from app.services.local_package_workflow.product_templates import resolve_product_template
-from app.services.local_package_workflow.scoring import score_candidate
+from app.services.local_package_workflow.research import (
+    ResearchUnavailableError,
+    collect_live_research_snapshot,
+)
+from app.services.local_package_workflow.scoring import (
+    score_candidate,
+    score_candidate_from_research_snapshot,
+)
+
+
+def _write_candidate_audit(run_id: str, audit_payload: list[dict]) -> str:
+    path = DATA_DIR / "logs" / f"{run_id}_candidate_audit.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(audit_payload, indent=2, sort_keys=True), encoding="utf-8")
+    return str(path.relative_to(DATA_DIR.parent))
 
 
 def run_autopilot(request: AutopilotRequest) -> RunResponse:
@@ -66,6 +82,18 @@ def run_autopilot(request: AutopilotRequest) -> RunResponse:
             (
                 run_id,
                 "info",
+                (
+                    "Production mode enabled; research snapshots are required before scoring."
+                    if request.production_mode
+                    else "Local deterministic mode; candidate fixture signals may be used."
+                ),
+            ),
+        )
+        connection.execute(
+            "INSERT INTO run_logs (run_id, level, message) VALUES (?, ?, ?)",
+            (
+                run_id,
+                "info",
                 f"Resolved product {product.code} to {product.width}x{product.height}.",
             ),
         )
@@ -78,14 +106,56 @@ def run_autopilot(request: AutopilotRequest) -> RunResponse:
             ),
         )
 
-        candidate_iter = cycle_fixture_candidates()
-        attempts = 0
         max_attempts = requested_count * 5
-        while len(created_draft_ids) < requested_count and attempts < max_attempts:
-            attempts += 1
-            candidate = next(candidate_iter)
+        discovery = discover_candidates(
+            config.candidate_sources,
+            requested_count=max_attempts,
+            seed=run_id,
+        )
+        audit_by_candidate_id = {
+            record.candidate_id: record for record in discovery.audit_records
+        }
+        audit_path = _write_candidate_audit(run_id, discovery.audit_payload())
+        connection.execute(
+            "INSERT INTO run_logs (run_id, level, message) VALUES (?, ?, ?)",
+            (
+                run_id,
+                "info",
+                f"Candidate discovery audited {len(discovery.audit_records)} candidate decision(s) to {audit_path}.",
+            ),
+        )
+        connection.execute(
+            "INSERT INTO run_logs (run_id, level, message) VALUES (?, ?, ?)",
+            (
+                run_id,
+                "info",
+                (
+                    "External research enabled by config."
+                    if discovery.external_research_enabled
+                    else "External research disabled by config; local sources only."
+                ),
+            ),
+        )
+        for audit_record in discovery.audit_records:
+            if audit_record.decision == "skipped":
+                connection.execute(
+                    "INSERT INTO run_logs (run_id, level, message) VALUES (?, ?, ?)",
+                    (
+                        run_id,
+                        "warning",
+                        (
+                            f"Skipped {audit_record.candidate_id} from "
+                            f"{audit_record.source_id} ({audit_record.search_phrase}): "
+                            f"{'; '.join(audit_record.reasons)}"
+                        ),
+                    ),
+                )
+
+        for candidate in discovery.candidates:
+            if len(created_draft_ids) >= requested_count:
+                break
             compliance = run_compliance_gate(candidate)
-            if not compliance.passed:
+            if compliance.blocked:
                 connection.execute(
                     "INSERT INTO run_logs (run_id, level, message) VALUES (?, ?, ?)",
                     (
@@ -95,17 +165,55 @@ def run_autopilot(request: AutopilotRequest) -> RunResponse:
                     ),
                 )
                 continue
+            if compliance.human_review_required:
+                connection.execute(
+                    "INSERT INTO run_logs (run_id, level, message) VALUES (?, ?, ?)",
+                    (
+                        run_id,
+                        "warning",
+                        f"{candidate.candidate_id} requires human review: {'; '.join(compliance.reasons)}",
+                    ),
+                )
 
+            research_snapshot_payload = None
+            research_snapshot_path = None
+            if request.production_mode:
+                try:
+                    research_snapshot, research_snapshot_path = collect_live_research_snapshot(
+                        candidate,
+                        config.candidate_sources,
+                        run_id=run_id,
+                    )
+                    research_snapshot_payload = research_snapshot.to_payload()
+                except ResearchUnavailableError as exc:
+                    connection.execute(
+                        "INSERT INTO run_logs (run_id, level, message) VALUES (?, ?, ?)",
+                        (
+                            run_id,
+                            "error",
+                            f"Research unavailable for {candidate.candidate_id}: {exc}",
+                        ),
+                    )
+                    continue
+                score = score_candidate_from_research_snapshot(
+                    candidate,
+                    research_snapshot_payload,
+                )
+            else:
+                score = score_candidate(candidate)
             draft_id = f"drf_auto_{uuid4().hex[:10]}"
             package = assemble_local_package(
                 draft_id=draft_id,
                 candidate=candidate,
                 product=product,
                 marketplace_plan=marketplace_plan,
-                score=score_candidate(candidate),
+                score=score,
                 compliance=compliance,
                 validation_config=config.validation,
                 default_prices=config.settings.get("default_prices", {}),
+                candidate_audit=audit_by_candidate_id.get(candidate.candidate_id),
+                research_snapshot=research_snapshot_payload,
+                research_snapshot_path=research_snapshot_path,
             )
             draft = package.draft
             created_draft_ids.append(draft_id)
@@ -127,7 +235,11 @@ def run_autopilot(request: AutopilotRequest) -> RunResponse:
                 (
                     run_id,
                     "info",
-                    f"Created local package {draft_id} from {candidate.candidate_id}.",
+                    (
+                        f"Created local package {draft_id} from {candidate.candidate_id} "
+                        f"via {candidate.source_id}; score source "
+                        f"{'research snapshot ' + str(research_snapshot_path) if research_snapshot_path else 'candidate fixture signals'}."
+                    ),
                 ),
             )
             connection.execute(
@@ -163,7 +275,11 @@ def run_autopilot(request: AutopilotRequest) -> RunResponse:
                 (
                     run_id,
                     "error",
-                    "No compliant local candidates could be assembled.",
+                    (
+                        "No packages assembled because production research evidence was unavailable."
+                        if request.production_mode
+                        else "No compliant local candidates could be assembled."
+                    ),
                 ),
             )
         connection.execute(
@@ -183,6 +299,10 @@ def run_autopilot(request: AutopilotRequest) -> RunResponse:
             "Autopilot completed deterministic local package generation. "
             "No Amazon interaction occurred."
             if created_draft_ids
-            else "Autopilot could not assemble a compliant local package."
+            else (
+                "Autopilot could not assemble a package because production research evidence was unavailable."
+                if request.production_mode
+                else "Autopilot could not assemble a compliant local package."
+            )
         ),
     )

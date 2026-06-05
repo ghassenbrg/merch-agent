@@ -10,11 +10,17 @@ const labels: Record<string, string> = {
   transparent_background: 'Transparent background',
   correct_resolution: 'Correct resolution',
   file_size_under_limit: 'File size under limit',
+  placement_metadata_valid: 'Placement metadata valid',
   design_not_too_small: 'Design not too small',
   design_not_cropped: 'Design not cropped',
   product_type_terms_removed: 'Product type terms removed',
   listing_min_lengths_passed: 'Listing min lengths passed',
   selected_marketplaces_have_copy: 'Selected marketplaces have copy',
+  listing_field_lengths_passed: 'Listing field lengths passed',
+  listing_punctuation_passed: 'Listing punctuation passed',
+  marketplace_language_copy_passed: 'Marketplace language copy passed',
+  translation_checks_passed: 'Translation checks passed',
+  human_review_required: 'No human review required',
   price_config_exists: 'Price config exists',
 }
 </script>
@@ -27,7 +33,7 @@ const labels: Record<string, string> = {
     </div>
     <div class="panel-body check-list">
       <div v-for="(label, key) in labels" :key="key" class="check-item">
-        <span class="check-dot" :class="{ pass: draft.validation[key] === true }" />
+        <span class="check-dot" :class="{ pass: key === 'human_review_required' ? draft.validation[key] === false : draft.validation[key] === true }" />
         <span>{{ label }}</span>
       </div>
       <div class="check-item">

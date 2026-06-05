@@ -70,7 +70,9 @@ input {
 
 button:focus-visible,
 a:focus-visible,
-input:focus-visible {
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
   outline: 3px solid rgba(15, 143, 134, 0.24);
   outline-offset: 2px;
 }
@@ -321,9 +323,14 @@ a {
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: minmax(350px, 0.8fr) minmax(640px, 1.4fr);
+  grid-template-columns: minmax(300px, 0.8fr) minmax(0, 1.4fr);
   gap: 20px;
   align-items: start;
+}
+
+.dashboard-grid > *,
+.detail-grid > * {
+  min-width: 0;
 }
 
 .panel {
@@ -467,7 +474,7 @@ a {
 
 .detail-grid {
   display: grid;
-  grid-template-columns: minmax(300px, 0.9fr) minmax(390px, 1.1fr);
+  grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.1fr);
   gap: 16px;
 }
 
@@ -499,6 +506,13 @@ a {
   color: #0d343b;
   padding: 22px;
   box-shadow: 0 18px 34px rgba(8, 40, 47, 0.16);
+}
+
+.print-art-image {
+  width: 82%;
+  height: 90%;
+  object-fit: contain;
+  filter: drop-shadow(0 18px 24px rgba(8, 40, 47, 0.16));
 }
 
 .print-art strong {
@@ -608,6 +622,12 @@ a {
   font-weight: 800;
 }
 
+.field span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .readonly-field {
   min-height: 36px;
   border: 1px solid var(--border);
@@ -615,6 +635,34 @@ a {
   padding: 9px 10px;
   background: #fbfdfd;
   line-height: 1.45;
+}
+
+.text-field {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: #ffffff;
+  color: var(--text);
+  line-height: 1.45;
+  font-weight: 650;
+  resize: vertical;
+}
+
+.text-field:hover,
+.select-field:hover {
+  border-color: var(--border-strong);
+}
+
+.inline-error {
+  padding: 10px 12px;
+  border: 1px solid #efc2bd;
+  border-radius: 8px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-weight: 800;
 }
 
 .section-stack {
@@ -636,6 +684,11 @@ a {
 
 .empty.compact {
   padding: 18px;
+}
+
+.state-box {
+  border: 1px dashed var(--border-strong);
+  background: #fbfdfd;
 }
 
 .simple-page {
@@ -721,6 +774,13 @@ a {
   background: var(--accent-soft);
   color: var(--accent-strong);
   font-weight: 700;
+}
+
+.muted-notice {
+  margin: 0;
+  border-color: var(--border);
+  background: #f8fbfc;
+  color: var(--muted);
 }
 
 .search-box {
@@ -853,6 +913,95 @@ a {
   line-height: 1.35;
 }
 
+.artifact-list,
+.toggle-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.artifact-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fbfdfd;
+  color: var(--text);
+}
+
+.artifact-link:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 8px 18px rgba(8, 40, 47, 0.08);
+  transform: translateY(-1px);
+}
+
+.artifact-link.missing {
+  cursor: default;
+  opacity: 0.68;
+  background: #f9fbfb;
+}
+
+.artifact-link span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.artifact-link strong,
+.artifact-link small {
+  overflow-wrap: anywhere;
+}
+
+.review-edit-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(260px, 0.8fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.form-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.form-grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.subsection-title {
+  margin: 0 0 10px;
+  font-size: 13px;
+}
+
+.change-row {
+  align-items: flex-start;
+}
+
+.change-diff {
+  display: block;
+  color: var(--text) !important;
+  overflow-wrap: anywhere;
+}
+
+.bulk-panel {
+  margin-bottom: 16px;
+}
+
+.bulk-controls {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.18fr) minmax(220px, 0.32fr) minmax(280px, 1fr);
+  gap: 12px;
+  align-items: end;
+}
+
+.compact-field {
+  margin: 0;
+}
+
 .muted-row {
   opacity: 0.72;
 }
@@ -952,7 +1101,9 @@ a {
   }
 
   .dashboard-grid,
-  .detail-grid {
+  .detail-grid,
+  .review-edit-grid,
+  .bulk-controls {
     grid-template-columns: 1fr;
   }
 
@@ -983,7 +1134,8 @@ a {
 
   .metric-grid,
   .readiness-strip,
-  .filter-row {
+  .filter-row,
+  .form-grid.two {
     grid-template-columns: 1fr;
   }
 

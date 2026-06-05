@@ -6,9 +6,11 @@ import {
   CheckCircle2,
   ClipboardCheck,
   CloudUpload,
+  Layers3,
   Play,
   RefreshCw,
   Search,
+  Settings2,
   ShieldCheck,
   Sparkles,
   XCircle,
@@ -23,8 +25,11 @@ const isRunning = ref(false)
 const isAmazonBusy = ref(false)
 const query = ref('')
 const activeFilter = ref<'all' | 'ready' | 'needs_fix' | 'saved' | 'blocked'>('all')
+const bulkCount = ref(2)
+const bulkProduct = ref('standard_tshirt')
 
 const { data: drafts, pending, error, refresh } = await useFetch<DraftSummary[]>(`${base}/api/drafts`)
+const { data: config } = await useFetch<any>(`${base}/api/config`)
 
 watchEffect(() => {
   if (!selectedDraftId.value && drafts.value?.length) {
@@ -41,7 +46,7 @@ const stats = computed(() => {
   const all = drafts.value || []
   return {
     ready: all.filter((draft) => draft.status === 'READY_FOR_AMAZON_DRAFT').length,
-    needsFix: all.filter((draft) => draft.status === 'LISTING_READY' || draft.status.includes('NEEDS')).length,
+    needsFix: all.filter((draft) => draft.status === 'LISTING_READY' || draft.status.includes('NEEDS') || draft.status === 'HUMAN_REVIEW_REQUIRED').length,
     saved: all.filter((draft) => draft.status.includes('SAVED')).length,
     blocked: all.filter((draft) => draft.status.includes('BLOCKED') || draft.status.includes('FAILED')).length,
   }
@@ -68,7 +73,7 @@ const filteredDrafts = computed(() => {
 
     const matchesFilter = activeFilter.value === 'all'
       || (activeFilter.value === 'ready' && draft.status === 'READY_FOR_AMAZON_DRAFT')
-      || (activeFilter.value === 'needs_fix' && (draft.status === 'LISTING_READY' || draft.status.includes('NEEDS')))
+      || (activeFilter.value === 'needs_fix' && (draft.status === 'LISTING_READY' || draft.status.includes('NEEDS') || draft.status === 'HUMAN_REVIEW_REQUIRED'))
       || (activeFilter.value === 'saved' && draft.status.includes('SAVED'))
       || (activeFilter.value === 'blocked' && (draft.status.includes('BLOCKED') || draft.status.includes('FAILED')))
 
@@ -83,10 +88,13 @@ const readinessItems = computed(() => {
     ['Transparent artwork', selectedDraft.value.validation.transparent_background],
     ['Resolution matches template', selectedDraft.value.validation.correct_resolution],
     ['Policy precheck passed', selectedDraft.value.validation.amazon_policy_precheck === 'pass'],
+    ['No human policy review needed', selectedDraft.value.validation.human_review_required !== true],
     ['No product terms in listing', selectedDraft.value.validation.product_type_terms_removed],
     ['Price and royalty configured', selectedDraft.value.validation.price_config_exists && selectedDraft.value.price.royalty_positive],
   ]
 })
+
+const productOptions = computed(() => Object.entries(config.value?.product_templates?.products || {}))
 
 async function runAutopilot() {
   isRunning.value = true
@@ -95,13 +103,17 @@ async function runAutopilot() {
     const response = await $fetch<RunResponse>(`${base}/api/workflows/autopilot/run`, {
       method: 'POST',
       body: {
-        count: 2,
-        default_product: 'standard_tshirt',
+        count: bulkCount.value,
+        default_product: bulkProduct.value,
         explore_marketplaces: true,
         touch_amazon: false,
+        production_mode: false,
       },
     })
     actionMessage.value = response.message
+    if (response.createdDraftIds.length) {
+      selectedDraftId.value = response.createdDraftIds[0]
+    }
     await refresh()
   } finally {
     isRunning.value = false
@@ -114,6 +126,11 @@ async function postDraftAction(action: string) {
     method: 'POST',
   })
   actionMessage.value = response.message
+  await Promise.all([refresh(), refreshSelected()])
+}
+
+async function afterListingSaved(message: string) {
+  actionMessage.value = message
   await Promise.all([refresh(), refreshSelected()])
 }
 
@@ -153,10 +170,37 @@ async function startAmazonDraft() {
         <button class="btn primary" :disabled="isRunning" @click="runAutopilot">
           <RefreshCw v-if="isRunning" :size="15" class="spin" />
           <Play v-else :size="15" />
-          {{ isRunning ? 'Running...' : 'Run Local Autopilot' }}
+          {{ isRunning ? 'Running...' : 'Generate Local Packages' }}
         </button>
       </div>
     </header>
+
+    <section class="panel bulk-panel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">Bulk Local Generation</h2>
+          <span class="draft-meta">Creates local packages only. Amazon batch actions are not available.</span>
+        </div>
+        <Layers3 :size="18" />
+      </div>
+      <div class="panel-body bulk-controls">
+        <label class="field compact-field">
+          <span>Packages</span>
+          <input v-model.number="bulkCount" class="text-field" type="number" min="1" max="10" />
+        </label>
+        <label class="field compact-field">
+          <span>Product</span>
+          <select v-model="bulkProduct" class="select-field">
+            <option value="standard_tshirt">standard_tshirt</option>
+            <option v-for="[code] in productOptions" :key="String(code)" :value="String(code)">{{ code }}</option>
+          </select>
+        </label>
+        <div class="notice muted-notice">
+          <Settings2 :size="16" />
+          Autopilot request always sends touch_amazon=false and stops at local review status.
+        </div>
+      </div>
+    </section>
 
     <section class="metric-grid">
       <div class="metric-card">
@@ -209,8 +253,8 @@ async function startAmazonDraft() {
             <span>{{ tab.count }}</span>
           </button>
         </div>
-        <div v-if="pending" class="empty">Loading drafts...</div>
-        <div v-else-if="error" class="empty">Backend is not available at {{ base }}.</div>
+        <div v-if="pending" class="empty state-box">Loading drafts from {{ base }}...</div>
+        <div v-else-if="error" class="empty state-box">Backend is not available at {{ base }}. Check that FastAPI is running before review.</div>
         <div v-else class="draft-list">
           <DraftCard
             v-for="draft in filteredDrafts"
@@ -219,7 +263,7 @@ async function startAmazonDraft() {
             :selected="draft.draft_id === selectedDraftId"
             @click="selectedDraftId = draft.draft_id"
           />
-          <div v-if="!filteredDrafts.length" class="empty compact">No drafts match this view.</div>
+          <div v-if="!filteredDrafts.length" class="empty compact">No drafts match this view. Clear filters or generate local packages.</div>
         </div>
       </section>
 
@@ -294,11 +338,11 @@ async function startAmazonDraft() {
           <ScoreBreakdown :draft="selectedDraft" />
         </div>
 
-        <ListingEditor :draft="selectedDraft" />
+        <ListingEditor :draft="selectedDraft" @saved="afterListingSaved" />
       </section>
 
       <section v-else class="panel">
-        <div class="empty">Select a draft to review.</div>
+        <div class="empty state-box">Select a draft to review, or generate local packages to populate the queue.</div>
       </section>
     </div>
   </div>

@@ -18,9 +18,11 @@ data/*.sqlite3-*
 data/frontend-preview.log
 data/drafts/*
 data/designs/*
+data/research_snapshots/*
 data/screenshots/*
 data/logs/*
 !data/drafts/.gitkeep
 !data/designs/.gitkeep
+!data/research_snapshots/.gitkeep
 !data/screenshots/.gitkeep
 !data/logs/.gitkeep

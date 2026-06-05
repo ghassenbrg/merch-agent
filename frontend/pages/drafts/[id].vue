@@ -1,10 +1,16 @@
 <script setup lang="ts">
-import type { Draft, DraftEvent, StatusResponse } from '~/composables/useApi'
+import type { Draft, DraftArtifact, DraftChange, DraftEvent, StatusResponse } from '~/composables/useApi'
 import {
   AlertTriangle,
+  Archive,
   CheckCircle2,
   Download,
+  ExternalLink,
+  FileText,
+  History,
+  PackageCheck,
   RefreshCw,
+  Save,
   ShieldCheck,
   Sparkles,
 } from '@lucide/vue'
@@ -17,6 +23,12 @@ const draftId = computed(() => String(route.params.id))
 const actionMessage = ref('')
 const isAmazonBusy = ref(false)
 const actionBusy = ref('')
+const isSavingReview = ref(false)
+const reviewError = ref('')
+const selectedMarketplaceCodes = ref<string[]>([])
+const priceAmount = ref<number | null>(null)
+const priceCurrency = ref('USD')
+const manualStatus = ref('LISTING_READY')
 
 const { data: draft, pending, error, refresh } = await useFetch<Draft>(
   () => `${base}/api/drafts/${draftId.value}`,
@@ -26,11 +38,41 @@ const { data: events, refresh: refreshEvents } = await useFetch<DraftEvent[]>(
   () => `${base}/api/drafts/${draftId.value}/events`,
   { watch: [draftId], default: () => [] },
 )
+const { data: changes, refresh: refreshChanges } = await useFetch<DraftChange[]>(
+  () => `${base}/api/drafts/${draftId.value}/changes`,
+  { watch: [draftId], default: () => [] },
+)
+const { data: artifacts, refresh: refreshArtifacts } = await useFetch<DraftArtifact[]>(
+  () => `${base}/api/drafts/${draftId.value}/artifacts`,
+  { watch: [draftId], default: () => [] },
+)
+
+watch(
+  draft,
+  (value) => {
+    if (!value) return
+    selectedMarketplaceCodes.value = value.marketplaces
+      .filter((marketplace) => marketplace.selected)
+      .map((marketplace) => marketplace.code)
+    priceAmount.value = value.price.amount ?? null
+    priceCurrency.value = value.price.currency || 'USD'
+    manualStatus.value = value.status === 'READY_FOR_AMAZON_DRAFT' ? 'LISTING_READY' : value.status
+  },
+  { immediate: true },
+)
 
 const selectedProducts = computed(() => draft.value?.products.filter((product) => product.selected) || [])
 const selectedMarketplaces = computed(() => draft.value?.marketplaces.filter((marketplace) => marketplace.selected) || [])
 const excludedMarketplaces = computed(() => draft.value?.marketplaces.filter((marketplace) => !marketplace.selected) || [])
 const downloadUrl = computed(() => `${base}/api/drafts/${draftId.value}/design/final.png`)
+const editableStatuses = [
+  'LISTING_READY',
+  'HUMAN_REVIEW_REQUIRED',
+  'BLOCKED_COMPLIANCE',
+  'BLOCKED_ARTWORK',
+  'ARTWORK_PENDING',
+  'ARCHIVED',
+]
 
 const readinessItems = computed(() => {
   if (!draft.value) return []
@@ -39,6 +81,7 @@ const readinessItems = computed(() => {
     ['Transparent artwork', draft.value.validation.transparent_background],
     ['Resolution matches template', draft.value.validation.correct_resolution],
     ['Policy precheck passed', draft.value.validation.amazon_policy_precheck === 'pass'],
+    ['No human policy review needed', draft.value.validation.human_review_required !== true],
     ['No product terms in listing', draft.value.validation.product_type_terms_removed],
     ['Price and royalty configured', draft.value.validation.price_config_exists && draft.value.price.royalty_positive],
   ]
@@ -51,10 +94,40 @@ async function postDraftAction(action: string) {
       method: 'POST',
     })
     actionMessage.value = response.message
-    await Promise.all([refresh(), refreshEvents()])
+    await Promise.all([refresh(), refreshEvents(), refreshChanges(), refreshArtifacts()])
   } finally {
     actionBusy.value = ''
   }
+}
+
+async function saveReviewSettings() {
+  if (!draft.value) return
+  isSavingReview.value = true
+  reviewError.value = ''
+  try {
+    await $fetch<Draft>(`${base}/api/drafts/${draftId.value}`, {
+      method: 'PATCH',
+      body: {
+        selected_marketplaces: selectedMarketplaceCodes.value,
+        price: {
+          currency: priceCurrency.value,
+          amount: priceAmount.value,
+        },
+        status: manualStatus.value,
+      },
+    })
+    actionMessage.value = 'Review edits saved locally. Manual approval is required before Amazon Draft Assist.'
+    await Promise.all([refresh(), refreshEvents(), refreshChanges(), refreshArtifacts()])
+  } catch (error: any) {
+    reviewError.value = error?.data?.detail || 'Review edits could not be saved.'
+  } finally {
+    isSavingReview.value = false
+  }
+}
+
+async function afterListingSaved(message: string) {
+  actionMessage.value = message
+  await Promise.all([refresh(), refreshEvents(), refreshChanges(), refreshArtifacts()])
 }
 
 async function startAmazonDraft() {
@@ -68,10 +141,14 @@ async function startAmazonDraft() {
       method: 'POST',
     })
     actionMessage.value = response.message
-    await Promise.all([refresh(), refreshEvents()])
+    await Promise.all([refresh(), refreshEvents(), refreshChanges(), refreshArtifacts()])
   } finally {
     isAmazonBusy.value = false
   }
+}
+
+function artifactHref(artifact: DraftArtifact) {
+  return `${base}${artifact.url}`
 }
 </script>
 
@@ -112,6 +189,25 @@ async function startAmazonDraft() {
               <Download :size="15" />
               Download Final PNG
             </a>
+            <div class="artifact-list">
+              <a
+                v-for="artifact in artifacts"
+                :key="artifact.key"
+                class="artifact-link"
+                :class="{ missing: !artifact.exists }"
+                :href="artifact.exists ? artifactHref(artifact) : undefined"
+                target="_blank"
+                rel="noreferrer"
+              >
+                <FileText :size="15" />
+                <span>
+                  <strong>{{ artifact.label }}</strong>
+                  <small>{{ artifact.exists ? artifact.path : 'Missing artifact' }}</small>
+                </span>
+                <ExternalLink v-if="artifact.exists" :size="14" />
+              </a>
+              <div v-if="!artifacts?.length" class="empty compact">No package artifacts available yet.</div>
+            </div>
           </div>
 
           <div class="section-stack">
@@ -152,11 +248,16 @@ async function startAmazonDraft() {
             <div class="toolbar action-toolbar">
               <button class="btn" :disabled="!!actionBusy" @click="postDraftAction('approve')">
                 <RefreshCw v-if="actionBusy === 'approve'" :size="15" class="spin" />
-                Approve
+                <PackageCheck v-else :size="15" />
+                Manual Approve
               </button>
               <button class="btn" :disabled="!!actionBusy" @click="postDraftAction('regenerate-design')">Regenerate Design</button>
               <button class="btn" :disabled="!!actionBusy" @click="postDraftAction('regenerate-listing')">Regenerate Listing</button>
               <button class="btn danger" :disabled="!!actionBusy" @click="postDraftAction('reject')">Reject</button>
+              <button class="btn danger" :disabled="!!actionBusy" @click="postDraftAction('archive')">
+                <Archive :size="15" />
+                Archive
+              </button>
             </div>
 
             <div class="assist-panel">
@@ -214,12 +315,64 @@ async function startAmazonDraft() {
         </section>
       </div>
 
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Review Edits</h2>
+            <span class="draft-meta">Marketplace, price, and status edits are local and require manual approval.</span>
+          </div>
+          <button class="btn primary" :disabled="isSavingReview" @click="saveReviewSettings">
+            <RefreshCw v-if="isSavingReview" :size="15" class="spin" />
+            <Save v-else :size="15" />
+            {{ isSavingReview ? 'Saving...' : 'Save Review Edits' }}
+          </button>
+        </div>
+        <div class="panel-body review-edit-grid">
+          <div class="section-stack">
+            <div v-if="reviewError" class="inline-error">{{ reviewError }}</div>
+            <div>
+              <h3 class="subsection-title">Selected Marketplaces</h3>
+              <div class="toggle-grid">
+                <label v-for="marketplace in draft.marketplaces" :key="marketplace.code" class="toggle-row">
+                  <span>
+                    <strong>{{ marketplace.code }}</strong>
+                    <small>{{ marketplace.language_group }} {{ marketplace.excluded_reason ? `· ${marketplace.excluded_reason}` : '' }}</small>
+                  </span>
+                  <input v-model="selectedMarketplaceCodes" type="checkbox" :value="marketplace.code" />
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="section-stack">
+            <div class="form-grid two">
+              <div class="field">
+                <label for="price-currency">Currency</label>
+                <input id="price-currency" v-model="priceCurrency" class="text-field" type="text" />
+              </div>
+              <div class="field">
+                <label for="price-amount">Price</label>
+                <input id="price-amount" v-model.number="priceAmount" class="text-field" type="number" min="0" step="0.01" />
+              </div>
+            </div>
+            <div class="field">
+              <label for="manual-status">Manual status</label>
+              <select id="manual-status" v-model="manualStatus" class="select-field">
+                <option v-for="status in editableStatuses" :key="status" :value="status">{{ status }}</option>
+              </select>
+            </div>
+            <div class="notice muted-notice">
+              READY_FOR_AMAZON_DRAFT cannot be set here. Use Manual Approve after validation passes.
+            </div>
+          </div>
+        </div>
+      </section>
+
       <div class="detail-grid">
         <ValidationPanel :draft="draft" />
         <ScoreBreakdown :draft="draft" />
       </div>
 
-      <ListingEditor :draft="draft" />
+      <ListingEditor :draft="draft" @saved="afterListingSaved" />
 
       <section class="panel">
         <div class="panel-header">
@@ -235,6 +388,26 @@ async function startAmazonDraft() {
             <StatusBadge :status="event.to_status || event.event_type" />
           </div>
           <div v-if="!events?.length" class="empty compact">No draft events recorded.</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Listing Change History</h2>
+            <span class="draft-meta">{{ changes?.length || 0 }} changes</span>
+          </div>
+          <History :size="18" />
+        </div>
+        <div class="panel-body table-list">
+          <div v-for="change in changes" :key="`${change.created_at}-${change.field}`" class="table-row change-row">
+            <span>
+              <strong>{{ change.field }}</strong>
+              <small>{{ change.note }} · {{ change.created_at }}</small>
+              <small class="change-diff">{{ change.before ?? 'empty' }} -> {{ change.after ?? 'empty' }}</small>
+            </span>
+          </div>
+          <div v-if="!changes?.length" class="empty compact">No listing edits recorded.</div>
         </div>
       </section>
     </template>

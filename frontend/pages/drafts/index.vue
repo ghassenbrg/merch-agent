@@ -89,8 +89,8 @@ function openDraft(draftId: string) {
         </label>
       </div>
 
-      <div v-if="pending" class="empty">Loading drafts...</div>
-      <div v-else-if="error" class="empty">Backend is not available at {{ base }}.</div>
+      <div v-if="pending" class="empty state-box">Loading draft library from {{ base }}...</div>
+      <div v-else-if="error" class="empty state-box">Backend is not available at {{ base }}. Start FastAPI before reviewing packages.</div>
       <div v-else class="draft-list library-list">
         <DraftCard
           v-for="draft in filteredDrafts"
@@ -99,7 +99,7 @@ function openDraft(draftId: string) {
           :selected="false"
           @click="openDraft(draft.draft_id)"
         />
-        <div v-if="!filteredDrafts.length" class="empty compact">No drafts match these filters.</div>
+        <div v-if="!filteredDrafts.length" class="empty compact">No drafts match these filters. Clear search or run local generation from the dashboard.</div>
       </div>
     </section>
   </div>

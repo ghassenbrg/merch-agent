@@ -1,0 +1,146 @@
+candidate_research:
+  local_sources:
+    - source_id: local_fixture_hobby_gifts
+      source_type: local_yaml
+      search_phrase: "low-risk evergreen hobby gift niches"
+      candidates:
+        - candidate_id: cand_fishing_grandpa
+          niche: Fly fishing grandpas
+          audience: Older anglers and family gift buyers
+          keywords:
+            - fly fishing
+            - grandpa gift
+            - river weekend
+            - outdoors
+          demand_signal: 82
+          trend_signal: 74
+          saturation_signal: 68
+          compliance_signal: 96
+          design_angle: Vintage river badge with fly rod linework and calm outdoor typography
+          listing_angle: relaxed fishing-themed gift for grandpas and families
+          risk_terms: []
+        - candidate_id: cand_garden_book_club
+          niche: Garden book club weekends
+          audience: Readers, gardeners, and cozy weekend gift shoppers
+          keywords:
+            - garden reader
+            - book club
+            - weekend garden
+            - plant lover
+          demand_signal: 76
+          trend_signal: 72
+          saturation_signal: 62
+          compliance_signal: 98
+          design_angle: Botanical book stack with small leaves, serif lettering, and soft ink texture
+          listing_angle: quiet reading and gardening design for weekend downtime
+          risk_terms: []
+        - candidate_id: cand_chess_coach
+          niche: Chess coach endgame humor
+          audience: Chess coaches, club players, and tournament families
+          keywords:
+            - chess coach
+            - endgame
+            - club player
+            - strategy gift
+          demand_signal: 71
+          trend_signal: 70
+          saturation_signal: 58
+          compliance_signal: 95
+          design_angle: Minimal chessboard corner with king marker and clean coaching phrase
+          listing_angle: strategy game design for coaches, clubs, and patient problem solvers
+          risk_terms: []
+        - candidate_id: cand_blocked_brand_trip
+          niche: Disney family vacation countdown
+          audience: Theme park travelers
+          keywords:
+            - disney
+            - vacation
+            - countdown
+          demand_signal: 88
+          trend_signal: 84
+          saturation_signal: 42
+          compliance_signal: 22
+          design_angle: Theme park vacation phrase
+          listing_angle: brand-connected travel design
+          risk_terms:
+            - disney
+
+  seeded_generators:
+    - generator_id: local_seeded_hobby_weekends
+      enabled: true
+      seed: phase4-local-default
+      source_type: seed_generator
+      search_phrase: "evergreen hobby weekend gift ideas"
+      max_candidates: 24
+      activities:
+        - kayaking
+        - birdwatching
+        - pottery
+        - trail walking
+        - crossword
+        - stargazing
+      audiences:
+        - dads
+        - moms
+        - retirees
+        - teachers
+      contexts:
+        - weekend crew
+        - quiet morning club
+        - after work reset
+      base_signals:
+        demand_signal: 72
+        trend_signal: 68
+        saturation_signal: 60
+        compliance_signal: 96
+
+  duplicate_detection:
+    enabled: true
+
+  cooldowns:
+    enabled: true
+    normalized_niches: []
+
+  prechecks:
+    min_compliance_signal: 70
+    blocked_terms:
+      - adidas
+      - disney
+      - marvel
+      - mickey
+      - nike
+      - pokemon
+      - star wars
+    trademark_terms:
+      - olympics
+      - super bowl
+
+  external_research:
+    enabled: false
+    adapters:
+      - adapter_id: marketplace_trends_stub
+        enabled: false
+        network_allowed: false
+
+  research_evidence:
+    production_requires_snapshot_before_scoring: true
+    fixture_snapshots:
+      enabled: false
+      directory: backend/tests/fixtures/research_snapshots
+    live_adapters:
+      enabled: false
+      timeout_seconds: 8
+      adapters:
+        - adapter_id: duckduckgo_instant_answer
+          enabled: false
+          signals:
+            - demand
+            - competition
+        - adapter_id: duckduckgo_html_saturation
+          enabled: false
+          signals:
+            - saturation
+        - adapter_id: google_trends_daily_rss
+          enabled: false
+          signals:
+            - trend

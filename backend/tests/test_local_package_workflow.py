@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from app.core.paths import DATA_DIR
 from app.main import app
@@ -58,7 +59,8 @@ def test_compliance_gate_blocks_risky_fixture_before_assembly() -> None:
     blocked = run_compliance_gate(LOCAL_FIXTURE_CANDIDATES[-1])
 
     assert blocked.passed is False
-    assert blocked.reasons == ["Blocked high-risk term: disney"]
+    assert blocked.status == "blocked"
+    assert blocked.reasons == ["Blocked policy phrase: brand_or_trademark:disney"]
 
 
 def test_listing_validator_rejects_banned_product_type_terms() -> None:
@@ -104,17 +106,35 @@ def test_package_assembler_writes_required_local_artifacts() -> None:
 
     assert package.draft.status == "READY_FOR_AMAZON_DRAFT"
     assert package.draft.amazon_draft["eligible"] is True
+    assert package.draft.design["brief"]["generation_status"] == "rendered_locally"
+    assert package.draft.design["brief"]["external_services_used"] is False
     for artifact in [
         "draft.json",
         "listing_fields.json",
         "validation_report.json",
         "design_metadata.json",
+        "candidate_research.json",
     ]:
         assert (DATA_DIR / "drafts" / "drf_test_local_package" / artifact).is_file()
 
     payload = json.loads(Path(package.artifacts["draft_json"]).read_text())
     assert payload["draft_id"] == "drf_test_local_package"
     assert payload["validation"]["local_checks_pass"] is True
+    assert payload["validation"]["artwork_status"] == "passed"
+    assert payload["validation"]["artwork_pending"] is False
+    assert payload["validation"]["artwork"]["checks"]["png_present"]["passed"] is True
+    assert payload["validation"]["png_valid"] is True
+
+    final_png = DATA_DIR.parent / package.artifacts["final_png"]
+    source = DATA_DIR.parent / package.artifacts["design_source"]
+    render_metadata = DATA_DIR.parent / package.artifacts["render_metadata"]
+    assert final_png.is_file()
+    assert source.is_file()
+    assert render_metadata.is_file()
+    with Image.open(final_png) as image:
+        assert image.mode == "RGBA"
+        assert image.size == (4500, 5400)
+        assert image.getchannel("A").getpixel((0, 0)) == 0
 
 
 def test_autopilot_endpoint_creates_real_local_package_artifacts() -> None:
@@ -137,12 +157,24 @@ def test_autopilot_endpoint_creates_real_local_package_artifacts() -> None:
     assert draft_response.status_code == 200
     draft = draft_response.json()
     assert draft["status"] == "READY_FOR_AMAZON_DRAFT"
-    assert draft["design"]["brief"]["generation_status"] == "metadata_only_no_image_generation"
+    assert draft["design"]["brief"]["generation_status"] == "rendered_locally"
+    assert draft["design"]["brief"]["external_services_used"] is False
     assert draft["amazon_draft"]["publish_allowed"] is False
+    assert draft["amazon_draft"]["eligible"] is True
+    assert draft["validation"]["artwork_status"] == "passed"
+    assert draft["validation"]["png_valid"] is True
+    assert draft["validation"]["artwork"]["checks"]["correct_resolution"]["passed"] is True
+
+    png_response = client.get(f"/api/drafts/{draft_id}/design/final.png")
+    assert png_response.status_code == 200
+    assert png_response.headers["content-type"] == "image/png"
 
     artifact_dir = DATA_DIR / "drafts" / draft_id
     assert (artifact_dir / "draft.json").is_file()
     assert (artifact_dir / "listing_fields.json").is_file()
     assert (artifact_dir / "validation_report.json").is_file()
     assert (artifact_dir / "design_metadata.json").is_file()
-
+    assert (artifact_dir / "candidate_research.json").is_file()
+    assert (DATA_DIR / "designs" / draft_id / "source.json").is_file()
+    assert (DATA_DIR / "designs" / draft_id / "render_metadata.json").is_file()
+    assert (DATA_DIR / "designs" / draft_id / "final.png").is_file()
