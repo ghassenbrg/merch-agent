@@ -1666,7 +1666,7 @@ Result: in-app Browser checks passed with meaningful rendered content, enabled A
 
 ### Phase 10: Scheduling and Autopilot Operations
 
-Status: pending.
+Status: completed.
 
 Goal: support unattended local package generation while preserving Amazon separation.
 
@@ -1683,6 +1683,53 @@ Exit criteria:
 - Scheduled autopilot produces local packages only.
 - Stop switch halts queued/running local jobs.
 - Run history clearly distinguishes scheduled vs manual runs.
+
+Completed after Phase 10:
+
+- Added a local scheduler status/tick service and in-process scheduler loop for scheduled autopilot generation. Scheduled ticks always construct `AutopilotRequest` with `touch_amazon=false` and use the existing local package workflow only.
+- Added config-backed operations settings for scheduler enablement, stop switch, interval minutes, cooldown minutes, scheduled packages per run, max packages per run, max packages per day, disk usage limit, default product, marketplace exploration, and production mode.
+- Added run-history distinction with `scheduled_autopilot` mode and run logs that state Amazon Draft Assist is unavailable to the workflow.
+- Added scheduler gates for disabled scheduler, stop switch, concurrent job lock, disk usage limit, zero package allowance, daily package limit, and cooldown.
+- Added dashboard indicators and controls on Runs, Settings, and the main dashboard for scheduler state, stop/resume, package counts, disk usage, cooldown, and scheduled local package generation.
+- Added focused Phase 10 tests proving scheduled jobs create local `READY_FOR_AMAZON_DRAFT` packages only, do not create Amazon Draft Assist attempt records, and honor stop switch, daily limit, disk limit, cooldown, and per-run cap.
+
+Baseline verification before Phase 10 changes:
+
+```bash
+cd backend && . .venv/bin/activate && pytest -q
+# 58 passed in 8.53s
+
+cd frontend && npm run build
+# passed
+
+cd frontend && npm audit --audit-level=moderate
+# found 0 vulnerabilities
+```
+
+Post-implementation verification:
+
+```bash
+cd backend && . .venv/bin/activate && pytest -q
+# 63 passed in 10.31s
+
+cd frontend && npm run build
+# passed
+
+cd frontend && npm audit --audit-level=moderate
+# found 0 vulnerabilities
+```
+
+Production-preview browser QA:
+
+```bash
+cd backend && . .venv/bin/activate && uvicorn app.main:app --host 127.0.0.1 --port 8000
+cd frontend && NUXT_PUBLIC_API_BASE=http://127.0.0.1:8000 HOST=127.0.0.1 PORT=3000 node .output/server/index.mjs
+```
+
+Routes checked: `/runs`, `/`, `/settings`
+Viewports: 1280x720 desktop, 390x844 mobile
+
+Result: in-app Browser checks passed with meaningful rendered content, no framework overlays, no console warnings/errors, and no mobile horizontal overflow. The desktop Runs interaction clicked "Run Due Scheduled Job" and created `run_8f12ced75906` in `scheduled_autopilot` mode with one local `READY_FOR_AMAZON_DRAFT` package and the message "No Amazon interaction occurred." A final desktop/mobile pass confirmed interval/cooldown scheduler indicators render correctly. Local database QA confirmed the latest Amazon Draft Assist attempt remained `job_cd8d7e6a1855` from `2026-06-05 08:07:16`, before the scheduled QA run at `2026-06-05 08:49:50`.
 
 ### Phase 11: Security, Access Control, and Deployment Readiness
 
@@ -1757,16 +1804,17 @@ Read MERCH_AGENT_PLAN.md first, especially:
 - the next incomplete phase
 
 Current state:
-- FastAPI backend has SQLite seed data, draft APIs, workflow APIs, validation, simulated Amazon Draft Assist, run history APIs, config/settings APIs, draft event APIs, deterministic local package workflow, local artwork PNG validation contracts, deterministic local PNG rendering, Phase 4 candidate discovery/auditing, production-mode research snapshot enforcement, Phase 5 compliance/listing hardening, and focused tests.
-- Nuxt 3 frontend has the redesigned dashboard UI plus real Drafts, draft detail, Runs, and Settings pages backed by the API; draft detail shows the real generated final PNG when present.
+- FastAPI backend has SQLite seed data, draft APIs, workflow APIs, validation, Amazon Draft Assist guardrails, run history APIs, config/settings APIs, draft event APIs, deterministic local package workflow, local artwork PNG validation contracts, deterministic local PNG rendering, Phase 4 candidate discovery/auditing, production-mode research snapshot enforcement, Phase 5 compliance/listing hardening, Phase 10 scheduler/autopilot operations, and focused tests.
+- Nuxt 3 frontend has the redesigned dashboard UI plus real Drafts, draft detail, Runs, and Settings pages backed by the API; draft detail shows the real generated final PNG when present, and Runs/Settings expose scheduler operations indicators and controls.
 - Production frontend preview should be used, not Nuxt dev mode, because dev mode previously had a Vite IPC socket issue on this machine.
 - Generated build/runtime artifacts are ignored.
 
 Hard safety constraints:
 - Autopilot must never touch Amazon.
-- Amazon Draft Assist remains manual, one draft at a time, save draft only, and simulated until dry-run safety work is explicitly started.
+- Scheduled autopilot must never invoke Amazon Draft Assist.
+- Amazon Draft Assist remains manual, one draft at a time, save draft only, and guarded by dry-run/live-save safety checks.
 - Never publish, submit for review, batch upload, edit live listings, or click dangerous Amazon actions.
-- Do not implement live Amazon browser automation in this session.
+- Do not expand Amazon browser automation in this session.
 
 First verify:
 cd backend && . .venv/bin/activate && pytest -q
@@ -1774,15 +1822,15 @@ cd frontend && npm run build
 cd frontend && npm audit --audit-level=moderate
 
 Next milestone:
-Implement Phase 6 from the Production Readiness Roadmap: Dashboard Review, Editing, and Approval Workflow.
+Implement Phase 11 from the Production Readiness Roadmap: Security, Access Control, and Deployment Readiness.
 
 Implement in this order:
-1. Add draft edit persistence for listing fields, selected marketplaces, price, and status.
-2. Add manual approval workflow with event history.
-3. Add artifact download/view links.
-4. Add package diff or change history for listing edits.
-5. Add bulk local generation controls, but no Amazon batch actions.
-6. Add better empty/error/loading states for generated package artifacts.
+1. Add environment config for local vs production mode.
+2. Add localhost-safe default access controls and document exposure risks.
+3. Harden CORS/CSRF behavior for any non-localhost deployment path.
+4. Add secret/config handling for browser profiles and future external integrations.
+5. Add operation audit checks for scheduler and Amazon Draft Assist boundaries.
+6. Update the runbook and deployment notes.
 
 After implementation:
 cd backend && . .venv/bin/activate && pytest -q
@@ -1796,5 +1844,5 @@ Then run Playwright desktop/mobile QA against production preview for:
 /runs
 /settings
 
-Do not start Amazon dry-run or live automation work unless explicitly instructed after dashboard review and data hardening phases are complete.
+Do not expand Amazon dry-run or live automation work unless explicitly instructed.
 ```

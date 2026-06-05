@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import asyncio
 import logging
 
 from fastapi import FastAPI
@@ -8,6 +9,7 @@ from app.api import config, drafts, runs, workflows
 from app.core.logging import configure_logging
 from app.db.database import init_database, seed_database
 from app.services.config_service import validate_config_contracts
+from app.services.scheduler_service import scheduler_loop
 
 
 logger = logging.getLogger("merch_agent.startup")
@@ -19,8 +21,16 @@ async def lifespan(app: FastAPI):
     validate_config_contracts()
     init_database()
     seed_database()
-    logger.info("Merch Agent API started", extra={"event": "startup", "phase": "phase9"})
-    yield
+    logger.info("Merch Agent API started", extra={"event": "startup", "phase": "phase10"})
+    scheduler_task = asyncio.create_task(scheduler_loop())
+    try:
+        yield
+    finally:
+        scheduler_task.cancel()
+        try:
+            await scheduler_task
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(title="Merch Agent API", version="0.1.0", lifespan=lifespan)

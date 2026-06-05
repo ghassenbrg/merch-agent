@@ -87,6 +87,31 @@ export interface RunDetail extends RunSummary {
   }>
 }
 
+export interface SchedulerStatus {
+  schedulerEnabled: boolean
+  stopSwitchEngaged: boolean
+  running: boolean
+  diskUsageMb: number
+  diskLimitMb: number
+  packagesGeneratedToday: number
+  maxPackagesPerDay: number
+  maxPackagesPerRun: number
+  scheduledPackagesPerRun: number
+  intervalMinutes: number
+  cooldownMinutes: number
+  nextRunAllowedAt: string | null
+  lastScheduledRunId: string | null
+  blockedReasons: string[]
+}
+
+export interface SchedulerRunResponse {
+  status: string
+  runId: string | null
+  createdDraftIds: string[]
+  message: string
+  scheduler: SchedulerStatus
+}
+
 export interface ConfigResponse {
   product_templates: Record<string, any>
   marketplaces: Record<string, any>
@@ -101,6 +126,7 @@ export interface SettingsPatch {
   default_products?: string[]
   enabled_marketplaces?: string[]
   default_prices?: Record<string, any>
+  autopilot_operations?: Record<string, any>
 }
 
 export const useApiBase = () => {

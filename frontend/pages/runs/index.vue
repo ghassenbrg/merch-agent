@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import type { RunDetail, RunResponse, RunSummary } from '~/composables/useApi'
-import { ClipboardList, Play, RefreshCw } from '@lucide/vue'
+import type { RunDetail, RunResponse, RunSummary, SchedulerRunResponse, SchedulerStatus } from '~/composables/useApi'
+import { ClipboardList, Play, RefreshCw, ShieldCheck } from '@lucide/vue'
 
 definePageMeta({ layout: 'default' })
 
 const base = useApiBase()
 const selectedRunId = ref<string | null>(null)
 const isRunning = ref(false)
+const isSchedulerBusy = ref(false)
 const actionMessage = ref('')
 
 const { data: runs, pending, error, refresh } = await useFetch<RunSummary[]>(`${base}/api/runs`)
+const { data: scheduler, refresh: refreshScheduler } = await useFetch<SchedulerStatus>(`${base}/api/workflows/autopilot/scheduler`)
 
 watchEffect(() => {
   if (!selectedRunId.value && runs.value?.length) {
@@ -43,6 +45,39 @@ async function runAutopilot() {
     isRunning.value = false
   }
 }
+
+async function runScheduledTick() {
+  isSchedulerBusy.value = true
+  actionMessage.value = ''
+  try {
+    const response = await $fetch<SchedulerRunResponse>(`${base}/api/workflows/autopilot/scheduler/tick`, {
+      method: 'POST',
+    })
+    actionMessage.value = response.message
+    if (response.runId) {
+      selectedRunId.value = response.runId
+    }
+    await Promise.all([refresh(), refreshSelected(), refreshScheduler()])
+  } finally {
+    isSchedulerBusy.value = false
+  }
+}
+
+async function setSchedulerStop(engaged: boolean) {
+  isSchedulerBusy.value = true
+  actionMessage.value = ''
+  try {
+    await $fetch(`${base}/api/workflows/autopilot/scheduler/${engaged ? 'stop' : 'resume'}`, {
+      method: 'POST',
+    })
+    actionMessage.value = engaged
+      ? 'Scheduled local autopilot stop switch engaged.'
+      : 'Scheduled local autopilot stop switch released.'
+    await refreshScheduler()
+  } finally {
+    isSchedulerBusy.value = false
+  }
+}
 </script>
 
 <template>
@@ -66,6 +101,70 @@ async function runAutopilot() {
       <ClipboardList :size="17" />
       <span>{{ actionMessage }}</span>
     </div>
+
+    <section v-if="scheduler" class="panel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">Scheduler Operations</h2>
+          <span class="draft-meta">Scheduled autopilot creates local packages only. Amazon Draft Assist is manual-only.</span>
+        </div>
+        <StatusBadge :status="scheduler.blockedReasons.length ? 'BLOCKED' : 'READY'" />
+      </div>
+      <div class="panel-body section-stack">
+        <div class="meta-grid">
+          <div class="meta-box">
+            <div class="meta-label">Scheduler</div>
+            <div class="meta-value">{{ scheduler.schedulerEnabled ? 'Enabled' : 'Disabled' }}</div>
+          </div>
+          <div class="meta-box">
+            <div class="meta-label">Stop Switch</div>
+            <div class="meta-value">{{ scheduler.stopSwitchEngaged ? 'Engaged' : 'Released' }}</div>
+          </div>
+          <div class="meta-box">
+            <div class="meta-label">Today</div>
+            <div class="meta-value">{{ scheduler.packagesGeneratedToday }} / {{ scheduler.maxPackagesPerDay }}</div>
+          </div>
+          <div class="meta-box">
+            <div class="meta-label">Disk</div>
+            <div class="meta-value">{{ scheduler.diskUsageMb }} / {{ scheduler.diskLimitMb }} MB</div>
+          </div>
+        </div>
+        <div class="table-list">
+          <div class="table-row">
+            <span>
+              <strong>{{ scheduler.scheduledPackagesPerRun }} scheduled · {{ scheduler.maxPackagesPerRun }} max per run</strong>
+              <small>{{ scheduler.intervalMinutes }} minute interval · {{ scheduler.cooldownMinutes }} minute cooldown · next allowed {{ scheduler.nextRunAllowedAt || 'now' }}</small>
+            </span>
+            <ShieldCheck :size="17" />
+          </div>
+          <div v-if="scheduler.blockedReasons.length" class="table-row">
+            <span>
+              <strong>{{ scheduler.blockedReasons.join(', ') }}</strong>
+              <small>Current scheduler gate</small>
+            </span>
+          </div>
+          <div v-else class="table-row">
+            <span>
+              <strong>Ready for the next scheduled local run</strong>
+              <small>Scheduled jobs cannot call Amazon Draft Assist.</small>
+            </span>
+          </div>
+        </div>
+        <div class="toolbar">
+          <button class="btn" :disabled="isSchedulerBusy" @click="runScheduledTick">
+            <RefreshCw v-if="isSchedulerBusy" :size="15" class="spin" />
+            <Play v-else :size="15" />
+            Run Due Scheduled Job
+          </button>
+          <button v-if="!scheduler.stopSwitchEngaged" class="btn danger" :disabled="isSchedulerBusy" @click="setSchedulerStop(true)">
+            Engage Stop Switch
+          </button>
+          <button v-else class="btn" :disabled="isSchedulerBusy" @click="setSchedulerStop(false)">
+            Release Stop Switch
+          </button>
+        </div>
+      </div>
+    </section>
 
     <div class="dashboard-grid">
       <section class="panel">

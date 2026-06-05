@@ -118,6 +118,35 @@ class RunResponse(BaseModel):
     message: str
 
 
+class SchedulerStatus(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    scheduler_enabled: bool = Field(alias="schedulerEnabled")
+    stop_switch_engaged: bool = Field(alias="stopSwitchEngaged")
+    running: bool
+    disk_usage_mb: float = Field(alias="diskUsageMb")
+    disk_limit_mb: float = Field(alias="diskLimitMb")
+    packages_generated_today: int = Field(alias="packagesGeneratedToday")
+    max_packages_per_day: int = Field(alias="maxPackagesPerDay")
+    max_packages_per_run: int = Field(alias="maxPackagesPerRun")
+    scheduled_packages_per_run: int = Field(alias="scheduledPackagesPerRun")
+    interval_minutes: int = Field(alias="intervalMinutes")
+    cooldown_minutes: int = Field(alias="cooldownMinutes")
+    next_run_allowed_at: str | None = Field(alias="nextRunAllowedAt")
+    last_scheduled_run_id: str | None = Field(alias="lastScheduledRunId")
+    blocked_reasons: list[str] = Field(alias="blockedReasons")
+
+
+class SchedulerRunResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    status: Literal["COMPLETED", "FAILED", "SKIPPED", "RUNNING"]
+    run_id: str | None = Field(default=None, alias="runId")
+    created_draft_ids: list[str] = Field(default_factory=list, alias="createdDraftIds")
+    message: str
+    scheduler: SchedulerStatus
+
+
 class RunSummary(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -156,3 +185,4 @@ class SettingsPatch(BaseModel):
     default_products: list[str] | None = None
     enabled_marketplaces: list[str] | None = None
     default_prices: dict[str, Any] | None = None
+    autopilot_operations: dict[str, Any] | None = None

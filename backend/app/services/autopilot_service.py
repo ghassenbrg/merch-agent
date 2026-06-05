@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from uuid import uuid4
 
 from app.core.paths import DATA_DIR
@@ -30,14 +31,18 @@ def _write_candidate_audit(run_id: str, audit_payload: list[dict]) -> str:
     return str(path.relative_to(DATA_DIR.parent))
 
 
-def run_autopilot(request: AutopilotRequest) -> RunResponse:
+def run_autopilot(
+    request: AutopilotRequest,
+    mode: str = "autopilot",
+    stop_requested: Callable[[], bool] | None = None,
+) -> RunResponse:
     run_id = f"run_{uuid4().hex[:12]}"
 
     if request.touch_amazon:
         with get_connection() as connection:
             connection.execute(
                 "INSERT INTO runs (run_id, mode, status, completed_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)",
-                (run_id, "autopilot", "FAILED"),
+                (run_id, mode, "FAILED"),
             )
             connection.execute(
                 "INSERT INTO run_logs (run_id, level, message) VALUES (?, ?, ?)",
@@ -54,9 +59,16 @@ def run_autopilot(request: AutopilotRequest) -> RunResponse:
             message="Autopilot cannot touch Amazon. Use manual Amazon draft assist from the UI.",
         )
 
-    requested_count = max(1, min(request.count, 10))
     created_draft_ids: list[str] = []
     config = get_config()
+    operations = config.settings.get("autopilot_operations", {})
+    max_packages_per_run = 10
+    if isinstance(operations, dict):
+        try:
+            max_packages_per_run = max(1, int(operations.get("max_packages_per_run", 10)))
+        except (TypeError, ValueError):
+            max_packages_per_run = 10
+    requested_count = max(1, min(request.count, max_packages_per_run, 10))
     product = resolve_product_template(
         config.product_templates,
         request.default_product,
@@ -72,11 +84,22 @@ def run_autopilot(request: AutopilotRequest) -> RunResponse:
     with get_connection() as connection:
         connection.execute(
             "INSERT INTO runs (run_id, mode, status) VALUES (?, ?, ?)",
-            (run_id, "autopilot", "COMPLETED"),
+            (run_id, mode, "COMPLETED"),
         )
         connection.execute(
             "INSERT INTO run_logs (run_id, level, message) VALUES (?, ?, ?)",
             (run_id, "info", f"Autopilot requested for {request.count} draft package(s)."),
+        )
+        connection.execute(
+            "INSERT INTO run_logs (run_id, level, message) VALUES (?, ?, ?)",
+            (
+                run_id,
+                "info",
+                (
+                    f"Run mode {mode}; package cap allows {requested_count} local package(s). "
+                    "Amazon Draft Assist is not available to this workflow."
+                ),
+            ),
         )
         connection.execute(
             "INSERT INTO run_logs (run_id, level, message) VALUES (?, ?, ?)",
@@ -153,6 +176,16 @@ def run_autopilot(request: AutopilotRequest) -> RunResponse:
                 )
 
         for candidate in discovery.candidates:
+            if stop_requested and stop_requested():
+                connection.execute(
+                    "INSERT INTO run_logs (run_id, level, message) VALUES (?, ?, ?)",
+                    (
+                        run_id,
+                        "warning",
+                        "Stop switch engaged; local package generation halted before the next candidate.",
+                    ),
+                )
+                break
             if len(created_draft_ids) >= requested_count:
                 break
             compliance = run_compliance_gate(candidate)
@@ -252,6 +285,7 @@ def run_autopilot(request: AutopilotRequest) -> RunResponse:
                 draft.status,
             )
 
+        stopped = bool(stop_requested and stop_requested())
         status = "COMPLETED" if created_draft_ids else "FAILED"
         if not created_draft_ids:
             connection.execute(
@@ -262,7 +296,11 @@ def run_autopilot(request: AutopilotRequest) -> RunResponse:
                     (
                         "No packages assembled because production research evidence was unavailable."
                         if request.production_mode
-                        else "No compliant local candidates could be assembled."
+                        else (
+                            "Stop switch halted scheduled generation before a package was assembled."
+                            if stopped
+                            else "No compliant local candidates could be assembled."
+                        )
                     ),
                 ),
             )
@@ -286,7 +324,11 @@ def run_autopilot(request: AutopilotRequest) -> RunResponse:
             else (
                 "Autopilot could not assemble a package because production research evidence was unavailable."
                 if request.production_mode
-                else "Autopilot could not assemble a compliant local package."
+                else (
+                    "Autopilot stopped before assembling a package because the stop switch was engaged."
+                    if stopped
+                    else "Autopilot could not assemble a compliant local package."
+                )
             )
         ),
     )

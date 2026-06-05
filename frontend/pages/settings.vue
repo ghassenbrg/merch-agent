@@ -9,6 +9,14 @@ const saveMessage = ref('')
 const isSaving = ref(false)
 const enabledMarketplaces = ref<string[]>([])
 const defaultProduct = ref('')
+const schedulerEnabled = ref(false)
+const stopSwitchEngaged = ref(false)
+const scheduledPackagesPerRun = ref(2)
+const maxPackagesPerRun = ref(10)
+const maxPackagesPerDay = ref(10)
+const intervalMinutes = ref(1440)
+const cooldownMinutes = ref(60)
+const diskUsageLimitMb = ref(2048)
 
 const { data: config, pending, error, refresh } = await useFetch<ConfigResponse>(`${base}/api/config`)
 
@@ -16,6 +24,15 @@ watchEffect(() => {
   if (!config.value) return
   enabledMarketplaces.value = [...(config.value.settings.enabled_marketplaces || [])]
   defaultProduct.value = config.value.settings.default_products?.[0] || ''
+  const operations = config.value.settings.autopilot_operations || {}
+  schedulerEnabled.value = Boolean(operations.scheduler_enabled)
+  stopSwitchEngaged.value = Boolean(operations.stop_switch_engaged)
+  scheduledPackagesPerRun.value = Number(operations.scheduled_packages_per_run ?? 2)
+  maxPackagesPerRun.value = Number(operations.max_packages_per_run ?? 10)
+  maxPackagesPerDay.value = Number(operations.max_packages_per_day ?? 10)
+  intervalMinutes.value = Number(operations.interval_minutes ?? 1440)
+  cooldownMinutes.value = Number(operations.cooldown_minutes ?? 60)
+  diskUsageLimitMb.value = Number(operations.disk_usage_limit_mb ?? 2048)
 })
 
 const marketplaces = computed(() => config.value?.marketplaces.marketplaces || [])
@@ -41,6 +58,18 @@ async function saveSettings() {
     const patch: SettingsPatch = {
       default_products: defaultProduct.value ? [defaultProduct.value] : [],
       enabled_marketplaces: enabledMarketplaces.value,
+      autopilot_operations: {
+        ...(config.value?.settings.autopilot_operations || {}),
+        scheduler_enabled: schedulerEnabled.value,
+        stop_switch_engaged: stopSwitchEngaged.value,
+        scheduled_packages_per_run: scheduledPackagesPerRun.value,
+        max_packages_per_run: maxPackagesPerRun.value,
+        max_packages_per_day: maxPackagesPerDay.value,
+        interval_minutes: intervalMinutes.value,
+        cooldown_minutes: cooldownMinutes.value,
+        disk_usage_limit_mb: diskUsageLimitMb.value,
+        default_product: defaultProduct.value || 'standard_tshirt',
+      },
     }
     await $fetch(`${base}/api/settings`, {
       method: 'PATCH',
@@ -131,6 +160,60 @@ async function saveSettings() {
           </div>
         </section>
       </div>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Autopilot Operations</h2>
+            <span class="draft-meta">Scheduled generation is local-only and cannot invoke Amazon Draft Assist.</span>
+          </div>
+          <StatusBadge :status="stopSwitchEngaged ? 'BLOCKED' : 'READY'" />
+        </div>
+        <div class="panel-body section-stack">
+          <div class="detail-grid">
+            <label class="toggle-row">
+              <span>
+                <strong>Local scheduler</strong>
+                <small>Allows scheduled autopilot ticks to create local packages.</small>
+              </span>
+              <input v-model="schedulerEnabled" type="checkbox" />
+            </label>
+            <label class="toggle-row">
+              <span>
+                <strong>Stop switch</strong>
+                <small>Blocks queued scheduled jobs and halts before the next local package.</small>
+              </span>
+              <input v-model="stopSwitchEngaged" type="checkbox" />
+            </label>
+          </div>
+          <div class="meta-grid">
+            <label class="field compact-field">
+              <span>Scheduled packages</span>
+              <input v-model.number="scheduledPackagesPerRun" class="text-field" type="number" min="0" max="10" />
+            </label>
+            <label class="field compact-field">
+              <span>Max per run</span>
+              <input v-model.number="maxPackagesPerRun" class="text-field" type="number" min="0" max="10" />
+            </label>
+            <label class="field compact-field">
+              <span>Max per day</span>
+              <input v-model.number="maxPackagesPerDay" class="text-field" type="number" min="0" max="100" />
+            </label>
+            <label class="field compact-field">
+              <span>Interval minutes</span>
+              <input v-model.number="intervalMinutes" class="text-field" type="number" min="0" max="10080" />
+            </label>
+            <label class="field compact-field">
+              <span>Cooldown minutes</span>
+              <input v-model.number="cooldownMinutes" class="text-field" type="number" min="0" max="10080" />
+            </label>
+            <label class="field compact-field">
+              <span>Disk limit MB</span>
+              <input v-model.number="diskUsageLimitMb" class="text-field" type="number" min="0" max="102400" />
+            </label>
+          </div>
+        </div>
+      </section>
 
       <div class="detail-grid">
         <section class="panel">

@@ -157,6 +157,19 @@ def _default_settings(config: dict[str, dict[str, Any]]) -> dict[str, Any]:
         "default_products": products,
         "enabled_marketplaces": [marketplace["code"] for marketplace in marketplaces],
         "default_prices": config["pricing"].get("default_prices", {}),
+        "autopilot_operations": {
+            "scheduler_enabled": False,
+            "stop_switch_engaged": False,
+            "interval_minutes": 1440,
+            "cooldown_minutes": 60,
+            "scheduled_packages_per_run": 2,
+            "max_packages_per_run": 10,
+            "max_packages_per_day": 10,
+            "disk_usage_limit_mb": 2048,
+            "default_product": products[0] if products else "standard_tshirt",
+            "explore_marketplaces": True,
+            "production_mode": False,
+        },
     }
 
 
@@ -166,6 +179,11 @@ def _load_settings(defaults: dict[str, Any]) -> dict[str, Any]:
         rows = connection.execute("SELECT key, payload FROM settings").fetchall()
     for row in rows:
         settings[row["key"]] = json.loads(row["payload"])
+    if isinstance(settings.get("autopilot_operations"), dict):
+        settings["autopilot_operations"] = {
+            **defaults["autopilot_operations"],
+            **settings["autopilot_operations"],
+        }
     return settings
 
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Draft, DraftSummary, RunResponse, StatusResponse } from '~/composables/useApi'
+import type { Draft, DraftSummary, RunResponse, SchedulerStatus, StatusResponse } from '~/composables/useApi'
 import {
   AlertTriangle,
   Bot,
@@ -30,6 +30,7 @@ const bulkProduct = ref('standard_tshirt')
 
 const { data: drafts, pending, error, refresh } = await useFetch<DraftSummary[]>(`${base}/api/drafts`)
 const { data: config } = await useFetch<any>(`${base}/api/config`)
+const { data: scheduler } = await useFetch<SchedulerStatus>(`${base}/api/workflows/autopilot/scheduler`)
 
 watchEffect(() => {
   if (!selectedDraftId.value && drafts.value?.length) {
@@ -165,6 +166,9 @@ async function startAmazonDraft() {
           API connected
         </span>
         <span class="system-pill muted">Amazon: manual only</span>
+        <span class="system-pill" :class="{ muted: scheduler?.blockedReasons?.length }">
+          Scheduled: {{ scheduler?.blockedReasons?.length ? 'blocked' : 'ready' }}
+        </span>
       </div>
       <div class="toolbar">
         <button class="btn primary" :disabled="isRunning" @click="runAutopilot">
@@ -222,6 +226,11 @@ async function startAmazonDraft() {
         <span class="metric-icon blocked"><XCircle :size="18" /></span>
         <span class="metric-label">Blocked</span>
         <strong>{{ stats.blocked }}</strong>
+      </div>
+      <div class="metric-card">
+        <span class="metric-icon ready"><Bot :size="18" /></span>
+        <span class="metric-label">Scheduled Today</span>
+        <strong>{{ scheduler?.packagesGeneratedToday || 0 }}</strong>
       </div>
     </section>
 
