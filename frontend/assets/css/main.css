@@ -1081,6 +1081,55 @@ a {
   font-weight: 650;
 }
 
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(8, 40, 47, 0.42);
+}
+
+.confirm-modal {
+  width: min(560px, 100%);
+  max-height: min(680px, calc(100vh - 40px));
+  overflow: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.modal-header,
+.modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  background: #fbfdfd;
+}
+
+.modal-actions {
+  justify-content: flex-end;
+  border-top: 1px solid var(--border);
+  border-bottom: 0;
+}
+
+.modal-body {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  line-height: 1.55;
+}
+
+.modal-body p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .spin {
   animation: spin 0.9s linear infinite;
 }

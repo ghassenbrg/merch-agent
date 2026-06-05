@@ -22,6 +22,7 @@ const base = useApiBase()
 const draftId = computed(() => String(route.params.id))
 const actionMessage = ref('')
 const isAmazonBusy = ref(false)
+const showAmazonConfirm = ref(false)
 const actionBusy = ref('')
 const isSavingReview = ref(false)
 const reviewError = ref('')
@@ -65,6 +66,16 @@ const selectedProducts = computed(() => draft.value?.products.filter((product) =
 const selectedMarketplaces = computed(() => draft.value?.marketplaces.filter((marketplace) => marketplace.selected) || [])
 const excludedMarketplaces = computed(() => draft.value?.marketplaces.filter((marketplace) => !marketplace.selected) || [])
 const downloadUrl = computed(() => `${base}/api/drafts/${draftId.value}/design/final.png`)
+const primaryProduct = computed(() => selectedProducts.value[0] || draft.value?.products[0])
+const confirmationDraftTitle = computed(() => draft.value?.listing_groups.English?.design_title || draftId.value)
+const confirmationProduct = computed(() => primaryProduct.value?.label || primaryProduct.value?.code || 'Selected product')
+const confirmationMarketplaces = computed(() => selectedMarketplaces.value.map((marketplace) => marketplace.code).join(', '))
+const confirmationPrice = computed(() => {
+  if (!draft.value?.price.amount) return 'Missing'
+  const amount = Number(draft.value.price.amount).toFixed(2)
+  if (draft.value.price.currency === 'USD') return `$${amount}`
+  return `${draft.value.price.currency} ${amount}`
+})
 const editableStatuses = [
   'LISTING_READY',
   'HUMAN_REVIEW_REQUIRED',
@@ -132,19 +143,31 @@ async function afterListingSaved(message: string) {
 
 async function startAmazonDraft() {
   if (!draft.value) return
-  const confirmed = window.confirm('Start Amazon Draft Assist for this one package only? The live browser operator is not enabled yet; this run is simulated.')
-  if (!confirmed) return
-
+  showAmazonConfirm.value = false
   isAmazonBusy.value = true
   try {
     const response = await $fetch<{ message: string }>(`${base}/api/drafts/${draftId.value}/amazon-draft`, {
       method: 'POST',
+      body: {
+        mode: 'controlled_live_save',
+        manual_ui_triggered: true,
+        save_draft_only_confirmed: true,
+        visible_browser_confirmed: true,
+        phase8_safety_confirmed: true,
+      },
     })
     actionMessage.value = response.message
+    await Promise.all([refresh(), refreshEvents(), refreshChanges(), refreshArtifacts()])
+  } catch (error: any) {
+    actionMessage.value = error?.data?.detail || 'Controlled live Amazon draft save failed.'
     await Promise.all([refresh(), refreshEvents(), refreshChanges(), refreshArtifacts()])
   } finally {
     isAmazonBusy.value = false
   }
+}
+
+function openAmazonConfirm() {
+  showAmazonConfirm.value = true
 }
 
 function artifactHref(artifact: DraftArtifact) {
@@ -268,7 +291,7 @@ function artifactHref(artifact: DraftArtifact) {
                   <span>Manual launch, one package, save draft only. Auto-translation and publish are blocked.</span>
                 </div>
               </div>
-              <AmazonDraftButton :draft="draft" :busy="isAmazonBusy" @start="startAmazonDraft" />
+              <AmazonDraftButton :draft="draft" :busy="isAmazonBusy" @start="openAmazonConfirm" />
             </div>
           </div>
         </div>
@@ -410,6 +433,43 @@ function artifactHref(artifact: DraftArtifact) {
           <div v-if="!changes?.length" class="empty compact">No listing edits recorded.</div>
         </div>
       </section>
+
+      <div v-if="showAmazonConfirm" class="modal-backdrop" role="presentation">
+        <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="amazon-confirm-title">
+          <div class="modal-header">
+            <div>
+              <h2 id="amazon-confirm-title" class="panel-title">Amazon Draft Assist</h2>
+              <span class="draft-meta">Controlled live browser session, one package, save draft only.</span>
+            </div>
+            <button class="btn" :disabled="isAmazonBusy" @click="showAmazonConfirm = false">Cancel</button>
+          </div>
+          <div class="modal-body">
+            <p>You are about to create an Amazon Merch draft for:</p>
+            <p>
+              Draft: {{ confirmationDraftTitle }}<br>
+              Product: {{ confirmationProduct }}<br>
+              Marketplaces: {{ confirmationMarketplaces }}<br>
+              Price: {{ confirmationPrice }}<br>
+              Action: Save Draft only
+            </p>
+            <p>
+              This will open/control the browser.<br>
+              The operator will never click Publish.
+            </p>
+            <div class="notice muted-notice">
+              Phase 9 safety: the operator is limited to one selected package and only the Save Draft action is allowed.
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn" :disabled="isAmazonBusy" @click="showAmazonConfirm = false">Cancel</button>
+            <button class="btn primary" :disabled="isAmazonBusy" @click="startAmazonDraft">
+              <RefreshCw v-if="isAmazonBusy" :size="15" class="spin" />
+              <ShieldCheck v-else :size="15" />
+              Start Amazon Draft Assist
+            </button>
+          </div>
+        </section>
+      </div>
     </template>
   </div>
 </template>

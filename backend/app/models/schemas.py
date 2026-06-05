@@ -85,6 +85,14 @@ class StatusResponse(BaseModel):
     message: str
 
 
+class AmazonDraftRequest(BaseModel):
+    mode: Literal["dry_run", "controlled_live_save"] = "dry_run"
+    manual_ui_triggered: bool = False
+    save_draft_only_confirmed: bool = False
+    visible_browser_confirmed: bool = False
+    phase8_safety_confirmed: bool = False
+
+
 class JobResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 

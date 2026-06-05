@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from app.core.paths import DATA_DIR
 from app.db.database import get_connection
+from app.db.repositories import insert_draft_event, upsert_draft_projection
 from app.models.schemas import AutopilotRequest, RunResponse
 from app.services.config_service import get_config
 from app.services.local_package_workflow.candidates import discover_candidates
@@ -217,19 +218,7 @@ def run_autopilot(request: AutopilotRequest) -> RunResponse:
             )
             draft = package.draft
             created_draft_ids.append(draft_id)
-            connection.execute(
-                """
-                INSERT INTO drafts (draft_id, status, title, score, payload)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (
-                    draft_id,
-                    draft.status,
-                    draft.listing_groups["English"]["design_title"],
-                    draft.score["overall"],
-                    draft.model_dump_json(),
-                ),
-            )
+            upsert_draft_projection(connection, draft)
             connection.execute(
                 "INSERT INTO run_logs (run_id, level, message) VALUES (?, ?, ?)",
                 (
@@ -254,18 +243,13 @@ def run_autopilot(request: AutopilotRequest) -> RunResponse:
                 "INSERT INTO run_drafts (run_id, draft_id) VALUES (?, ?)",
                 (run_id, draft_id),
             )
-            connection.execute(
-                """
-                INSERT INTO draft_events (draft_id, event_type, from_status, to_status, message)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (
-                    draft_id,
-                    "autopilot_created",
-                    None,
-                    draft.status,
-                    f"Created by local autopilot run {run_id}.",
-                ),
+            insert_draft_event(
+                connection,
+                draft_id,
+                "autopilot_created",
+                f"Created by local autopilot run {run_id}.",
+                None,
+                draft.status,
             )
 
         status = "COMPLETED" if created_draft_ids else "FAILED"

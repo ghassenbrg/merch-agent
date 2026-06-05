@@ -15,12 +15,13 @@ const enabled = computed(() => (
   props.draft.status === 'READY_FOR_AMAZON_DRAFT'
   && props.draft.amazon_draft.eligible
   && !props.draft.amazon_draft.saved
+  && !props.draft.amazon_draft.locked
 ))
 </script>
 
 <template>
   <button class="btn primary" :disabled="!enabled || busy" @click="emit('start')">
     <CloudUpload :size="15" />
-    {{ busy ? 'Starting...' : draft.amazon_draft.saved ? 'Amazon Draft Saved' : 'Save as Amazon Draft' }}
+    {{ busy ? 'Saving draft...' : draft.amazon_draft.saved ? 'Amazon Draft Saved' : 'Save as Amazon Draft' }}
   </button>
 </template>

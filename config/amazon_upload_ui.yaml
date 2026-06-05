@@ -1,8 +1,61 @@
 amazon_upload_ui:
+  dry_run:
+    mode: "local_mock_only"
+    create_product_url: "local_mock_merch_create_product"
+    controlled_profile_dir: "data/browser-profiles/amazon-draft-dry-run"
+    screenshot_dir: "data/screenshots/amazon-draft-dry-run"
+    stop_before_save_draft: true
+
+  live:
+    mode: "controlled_live_save"
+    create_product_url: "https://merch.amazon.com/designs/new"
+    controlled_profile_dir: "data/browser-profiles/amazon-draft-live"
+    screenshot_dir: "data/screenshots/amazon-draft-live"
+    headless: false
+    one_package_per_run: true
+    manual_ui_trigger_only: true
+    click_save_draft_only: true
+    selector_map:
+      upload_input: "[data-amazon-draft-field='upload-input']"
+      upload_status: "[data-amazon-draft-field='upload-status']"
+      product_type_select: "[data-amazon-draft-field='product-type']"
+      marketplace_checkbox: "[data-amazon-draft-marketplace='{code}']"
+      price_input: "[data-amazon-draft-field='price']"
+      translation_own_radio: "[data-amazon-draft-field='translation-own']"
+      language_section_toggle: "[data-amazon-draft-language-toggle='{language}']"
+      listing_input: "[data-amazon-draft-listing='{language}:{field}']"
+      warnings_panel: "[data-amazon-draft-field='warnings']"
+      save_draft_button: "[data-amazon-draft-action='save-draft']"
+
   translation_option:
     default: "provide_own_translations"
     radio_label: "No, I'll provide my own translations"
     never_use_auto_translation: true
+
+  selector_map:
+    upload_input: "[data-amazon-draft-field='upload-input']"
+    upload_status: "[data-amazon-draft-field='upload-status']"
+    product_type_select: "[data-amazon-draft-field='product-type']"
+    marketplace_checkbox: "[data-amazon-draft-marketplace='{code}']"
+    price_input: "[data-amazon-draft-field='price']"
+    translation_own_radio: "[data-amazon-draft-field='translation-own']"
+    language_section_toggle: "[data-amazon-draft-language-toggle='{language}']"
+    listing_input: "[data-amazon-draft-listing='{language}:{field}']"
+    warnings_panel: "[data-amazon-draft-field='warnings']"
+    save_draft_button: "[data-amazon-draft-action='save-draft']"
+    dangerous_action_button: "[data-amazon-dangerous-action='{label}']"
+
+  dangerous_action_labels:
+    - Publish
+    - Submit
+    - Submit for review
+    - Make live
+    - Update live listing
+    - Create product
+
+  safe_action_labels:
+    - Save Draft
+    - Save as Draft
 
   required_fields:
     - design_title

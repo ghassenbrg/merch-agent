@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse
 
 from app.core.paths import REPO_ROOT
 from app.models.schemas import (
+    AmazonDraftRequest,
     Draft,
     DraftArtifact,
     DraftChange,
@@ -119,5 +120,5 @@ def regenerate_draft_listing(draft_id: str) -> StatusResponse:
 
 
 @router.post("/{draft_id}/amazon-draft", response_model=JobResponse)
-def amazon_draft(draft_id: str) -> JobResponse:
-    return start_amazon_draft(draft_id)
+def amazon_draft(draft_id: str, request: AmazonDraftRequest | None = None) -> JobResponse:
+    return start_amazon_draft(draft_id, request or AmazonDraftRequest())

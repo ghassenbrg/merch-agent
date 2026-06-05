@@ -1,16 +1,25 @@
 from contextlib import asynccontextmanager
+import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import config, drafts, runs, workflows
+from app.core.logging import configure_logging
 from app.db.database import init_database, seed_database
+from app.services.config_service import validate_config_contracts
+
+
+logger = logging.getLogger("merch_agent.startup")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    configure_logging()
+    validate_config_contracts()
     init_database()
     seed_database()
+    logger.info("Merch Agent API started", extra={"event": "startup", "phase": "phase9"})
     yield
 
 

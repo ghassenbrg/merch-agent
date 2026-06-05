@@ -1,16 +1,14 @@
-"""
-Amazon draft operator placeholder.
+from __future__ import annotations
 
-The live Playwright operator is intentionally not enabled in the first
-implementation. Before implementing it, confirm Amazon policy/account readiness
-and discover selectors from the live Merch UI.
-"""
+import re
+
 
 DANGEROUS_TEXT = [
     "publish",
     "submit",
     "submit for review",
     "make live",
+    "update live listing",
     "create product",
 ]
 
@@ -20,8 +18,22 @@ SAFE_TEXT = [
 ]
 
 
+def normalize_action_label(label: str) -> str:
+    return re.sub(r"\s+", " ", label.strip().lower())
+
+
+def is_dangerous_action(label: str) -> bool:
+    normalized = normalize_action_label(label)
+    return any(term in normalized for term in DANGEROUS_TEXT)
+
+
 def is_safe_action(label: str) -> bool:
-    normalized = label.strip().lower()
-    if any(term in normalized for term in DANGEROUS_TEXT):
+    normalized = normalize_action_label(label)
+    if is_dangerous_action(normalized):
         return False
     return any(term in normalized for term in SAFE_TEXT)
+
+
+def assert_safe_action(label: str) -> None:
+    if not is_safe_action(label):
+        raise ValueError(f"Blocked unsafe Amazon action: {label}")

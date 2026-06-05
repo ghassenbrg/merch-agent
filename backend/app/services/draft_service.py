@@ -9,6 +9,7 @@ from fastapi import HTTPException
 
 from app.core.paths import DATA_DIR, REPO_ROOT
 from app.db.database import get_connection
+from app.db.repositories import insert_draft_event, upsert_draft_projection
 from app.models.schemas import (
     Draft,
     DraftArtifact,
@@ -53,12 +54,13 @@ def record_draft_event(
     to_status: str | None = None,
 ) -> None:
     with get_connection() as connection:
-        connection.execute(
-            """
-            INSERT INTO draft_events (draft_id, event_type, from_status, to_status, message)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (draft_id, event_type, from_status, to_status, message),
+        insert_draft_event(
+            connection,
+            draft_id,
+            event_type,
+            message,
+            from_status,
+            to_status,
         )
 
 
@@ -83,26 +85,14 @@ def _save_artifact_snapshots(draft: Draft) -> None:
 def _save_draft(draft: Draft, previous_status: str, event_type: str, message: str) -> None:
     _save_artifact_snapshots(draft)
     with get_connection() as connection:
-        connection.execute(
-            """
-            UPDATE drafts
-            SET status = ?, title = ?, score = ?, payload = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE draft_id = ?
-            """,
-            (
-                draft.status,
-                draft.listing_groups["English"]["design_title"],
-                draft.score["overall"],
-                draft.model_dump_json(),
-                draft.draft_id,
-            ),
-        )
-        connection.execute(
-            """
-            INSERT INTO draft_events (draft_id, event_type, from_status, to_status, message)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (draft.draft_id, event_type, previous_status, draft.status, message),
+        upsert_draft_projection(connection, draft)
+        insert_draft_event(
+            connection,
+            draft.draft_id,
+            event_type,
+            message,
+            previous_status,
+            draft.status,
         )
 
 

@@ -1348,7 +1348,7 @@ Result: in-app Browser DOM/console checks passed with nonblank content, no frame
 
 ### Phase 7: Data Model, Migrations, and Local Operations Hardening
 
-Status: pending.
+Status: completed on 2026-06-05.
 
 Goal: make backend data durable and maintainable before production use.
 
@@ -1374,9 +1374,78 @@ Exit criteria:
 - Tests cover migrations or repository behavior.
 - Local package exports can be restored or inspected without the UI.
 
+Implementation completed:
+
+- Replaced the one-shot SQLite initializer with versioned `schema_migrations`.
+- Kept draft JSON payloads as the backward-compatible API source of truth, and added explicit projection tables for listing groups, validation results, design artifacts, and Amazon draft attempts.
+- Added repository helpers so seeded drafts, autopilot-created drafts, draft edits, and simulated Amazon draft attempts keep the projection tables current.
+- Added structured JSON-line application logging to stdout and `data/logs/backend.jsonl`.
+- Added startup config validation for product templates, marketplaces, pricing, listing validation constraints, and candidate research sources.
+- Added force-gated local operations:
+  - `backend/scripts/reset_database.py`
+  - `backend/scripts/seed_database.py`
+  - `backend/scripts/export_packages.py`
+  - `backend/scripts/restore_export.py`
+- Added `data/backups` and `data/exports` directory skeletons; generated backup/export contents are ignored by git.
+- Hardened backend tests to use an isolated temporary `MERCH_AGENT_DATA_DIR` so verification no longer mutates the repo's local package database.
+
+Data preservation and reset notes:
+
+- Migrations are additive and backfill new tables from existing `drafts.payload` rows.
+- No reset was run on the local repo database during implementation.
+- `reset_database.py` and `restore_export.py` refuse to run without `--force`; both create a pre-operation SQLite backup by default unless `--no-backup` is explicitly provided.
+- Package exports include a manifest, draft payloads, draft artifacts, and a database snapshot for offline inspection or restore.
+
+Baseline verification before Phase 7 changes:
+
+```bash
+cd backend && . .venv/bin/activate && pytest -q
+# 43 passed
+
+cd frontend && npm run build
+# passed
+
+cd frontend && npm audit --audit-level=moderate
+# found 0 vulnerabilities
+```
+
+Post-implementation verification:
+
+```bash
+cd backend && . .venv/bin/activate && pytest -q
+# 50 passed
+
+cd frontend && npm run build
+# passed
+
+cd frontend && npm audit --audit-level=moderate
+# found 0 vulnerabilities
+
+cd backend && . .venv/bin/activate && python scripts/reset_database.py
+# refused without --force
+
+cd backend && . .venv/bin/activate && python scripts/seed_database.py
+# seeded=true
+
+cd backend && . .venv/bin/activate && python scripts/export_packages.py --draft-id drf_20260605_0001
+# export created under data/exports
+```
+
+Production-preview browser QA:
+
+```text
+Backend:  http://127.0.0.1:8000
+Frontend: http://127.0.0.1:3000
+Routes: /, /drafts, /runs, /settings
+Viewports: 1280x720 desktop, 390x844 mobile
+Interaction: dashboard search for "garden" filtered the draft queue from 98 total to 4 shown.
+```
+
+Result: in-app Browser DOM/console checks passed with meaningful rendered content, no framework overlays, no console warnings/errors, and no horizontal overflow on desktop or mobile. Browser screenshot capture timed out in this runtime, so screenshot evidence was captured with the repo's Playwright dependency and saved under `/tmp/merch-agent-phase7-desktop.png` and `/tmp/merch-agent-phase7-mobile.png`.
+
 ### Phase 8: Amazon Draft Assist Dry Run
 
-Status: pending.
+Status: completed on 2026-06-05.
 
 Goal: prove browser automation safety without touching a live Amazon draft.
 
@@ -1407,9 +1476,83 @@ Exit criteria:
 - Dangerous action blocker tests pass.
 - No live Amazon draft is saved in this phase.
 
+Implementation completed:
+
+- Added a config-driven Amazon upload selector map, dry-run controlled browser profile path, dry-run screenshot path, dangerous action labels, and safe action labels in `config/amazon_upload_ui.yaml`.
+- Replaced the placeholder browser operator with shared dangerous-action safety helpers and a Playwright dry-run runner under `agent/merch_agent/browser/`.
+- The dry-run runner launches a persistent controlled Playwright browser profile, opens a local mock Merch create-product page, fills one selected package through configured selectors, checks warnings, verifies the Save Draft button label, captures 10 screenshots, and stops before clicking Save Draft.
+- Updated the backend Amazon Draft Assist endpoint to run dry-run mode only:
+  - rejects unready, saved, publish-enabled, locked, marketplace-missing, or non-positive-royalty drafts
+  - locks the draft as `AMAZON_DRAFT_IN_PROGRESS` before the run
+  - records dry-run started/completed events
+  - writes an `amazon_draft_attempts` row with mode `playwright_dry_run`
+  - restores the draft to `READY_FOR_AMAZON_DRAFT`
+  - keeps `amazon_draft.saved` false
+- Added focused dangerous-action blocker tests for `Publish`, `Submit`, `Submit for review`, `Make live`, `Update live listing`, and `Create product`.
+- Added endpoint tests proving dry-run completion records screenshots and attempt metadata while leaving the Amazon saved flag false.
+- Replaced the browser `confirm()` with a UI confirmation modal containing the required safety copy:
+
+```text
+You are about to create an Amazon Merch draft for:
+
+Draft: Funny Fly Fishing Grandpa
+Product: Standard T-Shirt
+Marketplaces: .com, .co.uk
+Price: $19.99
+Action: Save Draft only
+
+This will open/control the browser.
+The operator will never click Publish.
+```
+
+Phase 8 behavior note:
+
+- The modal includes an additional dry-run note outside the required safety copy.
+- The backend does not navigate to Amazon and does not save a live Amazon draft.
+- The dry-run stops before clicking Save Draft, even on the local mock page.
+
+Baseline verification before Phase 8 changes:
+
+```bash
+cd backend && . .venv/bin/activate && pytest -q
+# 50 passed
+
+cd frontend && npm run build
+# passed
+
+cd frontend && npm audit --audit-level=moderate
+# found 0 vulnerabilities
+```
+
+Post-implementation verification:
+
+```bash
+cd backend && . .venv/bin/activate && pytest -q
+# 54 passed
+
+cd frontend && npm run build
+# passed
+
+cd frontend && npm audit --audit-level=moderate
+# found 0 vulnerabilities
+```
+
+Production-preview browser QA:
+
+```text
+Backend:  http://127.0.0.1:8000
+Frontend: http://127.0.0.1:3000
+Draft checked: drf_auto_02fc664bda
+Flow: draft detail -> Amazon Draft Assist Dry Run -> confirmation modal -> Start Amazon Draft Assist -> local dry-run completion
+Viewports: 1280x720 desktop, 390x844 mobile
+Screenshot evidence: /tmp/merch-agent-phase8-desktop.png, /tmp/merch-agent-phase8-modal.png, /tmp/merch-agent-phase8-mobile.png
+```
+
+Result: in-app Browser checks passed with meaningful rendered content, no framework overlays, no console warnings/errors, no mobile horizontal overflow, exact confirmation modal safety copy present, and UI-triggered dry-run completion visible. Backend state after the UI run remained `READY_FOR_AMAZON_DRAFT`, `amazon_draft.saved` stayed false, `amazon_draft.locked` stayed false after completion, and the dry-run metadata recorded 10 screenshots.
+
 ### Phase 9: Controlled Live Amazon Draft Save
 
-Status: pending.
+Status: completed on 2026-06-05.
 
 Goal: save exactly one Amazon draft after explicit user action.
 
@@ -1443,6 +1586,83 @@ Exit criteria:
 - One controlled live draft save succeeds or fails with screenshots and logs.
 - Local status and event history are accurate.
 - User still manually reviews/publishes inside Merch.
+
+Implementation completed:
+
+- Kept Phase 8 dry-run available as explicit regression mode while adding `controlled_live_save` mode to `POST /api/drafts/{draftId}/amazon-draft`.
+- Added request-level live gates requiring:
+  - `manual_ui_triggered`
+  - `save_draft_only_confirmed`
+  - `visible_browser_confirmed`
+  - `phase8_safety_confirmed`
+- Added one-package guard requiring exactly one selected product and at least one selected marketplace before any Amazon Draft Assist mode can lock a draft.
+- Added a controlled live Playwright operator at `agent/merch_agent/browser/amazon_draft_live_save.mjs` that:
+  - launches a persistent visible browser profile with `headless: false`
+  - opens the configured Merch create-product URL
+  - uploads the final PNG
+  - selects the configured product, marketplaces, price, own-translation option, and listing fields
+  - stops on warning text
+  - verifies the Save Draft button label is safe before clicking
+  - captures `before-save-draft` and `after-save-draft` screenshots
+  - returns a structured report with `touch_amazon: true`, `save_draft_clicked: true`, and `publish_allowed: false`
+- Added live-save status transitions:
+  - success marks the draft `AMAZON_DRAFT_SAVED`, clears the lock, sets `amazon_draft.saved = true`, stores screenshot paths, and records a `controlled_live_save` attempt
+  - failure marks the draft `AMAZON_DRAFT_FAILED`, clears the lock, keeps `amazon_draft.saved = false`, stores failure metadata, and records a failed attempt
+- Updated the dashboard button and confirmation modal from Phase 8 dry-run copy to Phase 9 controlled live save copy.
+- Added config validation for live mode requiring visible browser, one package per run, manual UI trigger only, Save Draft only, and a full live selector map.
+
+Selector confirmation note:
+
+- Live selectors are config-driven under `config/amazon_upload_ui.yaml`.
+- The live operator fails closed if a configured selector is missing, resolves to warnings, or resolves the Save Draft action to an unsafe label.
+- Actual Amazon DOM selectors still need to be confirmed in the controlled browser session before a real live save attempt; screenshots alone are not treated as selector proof.
+
+Baseline verification before Phase 9 changes:
+
+```bash
+cd backend && . .venv/bin/activate && pytest -q
+# 54 passed
+
+cd frontend && npm run build
+# passed
+
+cd frontend && npm audit --audit-level=moderate
+# found 0 vulnerabilities
+```
+
+Post-implementation verification:
+
+```bash
+cd backend && . .venv/bin/activate && pytest -q
+# 58 passed
+
+cd frontend && npm run build
+# passed
+
+cd frontend && npm audit --audit-level=moderate
+# found 0 vulnerabilities
+```
+
+Additional check:
+
+```bash
+cd frontend && npm run typecheck
+# blocked: Nuxt could not find a root frontend/tsconfig.json
+```
+
+Production-preview browser QA:
+
+```text
+Backend:  http://127.0.0.1:8000
+Frontend: http://127.0.0.1:3000
+Draft checked: drf_auto_02fc664bda
+Flow: draft detail -> Save as Amazon Draft -> confirmation modal only
+Live save was not started during QA.
+Viewports: 1280x720 desktop, 390x844 mobile
+Screenshot evidence: /tmp/merch-agent-phase9-modal-desktop.png, /tmp/merch-agent-phase9-modal-mobile.png
+```
+
+Result: in-app Browser checks passed with meaningful rendered content, enabled Amazon Draft Assist button on a `READY_FOR_AMAZON_DRAFT` package, exact save-draft-only confirmation copy present, no console warnings/errors, and no mobile horizontal overflow. The Start Amazon Draft Assist action was intentionally not clicked during QA because it is the guarded live Amazon side-effect trigger.
 
 ### Phase 10: Scheduling and Autopilot Operations
 

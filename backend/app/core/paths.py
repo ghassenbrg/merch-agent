@@ -16,5 +16,7 @@ def ensure_data_directories() -> None:
         DATA_DIR / "research_snapshots",
         DATA_DIR / "screenshots",
         DATA_DIR / "logs",
+        DATA_DIR / "backups",
+        DATA_DIR / "exports",
     ]:
         path.mkdir(parents=True, exist_ok=True)
