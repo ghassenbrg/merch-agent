@@ -1,0 +1,75 @@
+product_templates:
+  tshirts_sweatshirts_long_sleeve_back_hoodie:
+    width: 4500
+    height: 5400
+    products:
+      - standard_tshirt
+      - premium_tshirt
+      - sweatshirt
+      - long_sleeve_tshirt
+      - pullover_hoodie_back
+
+  crop_tops_crop_sweatshirts_front_hoodies:
+    width: 4500
+    height: 4050
+    products:
+      - crop_top
+      - crop_sweatshirt
+      - pullover_hoodie_front
+      - zip_hoodie_front
+
+  performance_tops:
+    width: 1200
+    height: 1200
+    products:
+      - performance_polo
+      - performance_quarter_zip
+
+  hats_visors:
+    width: 1500
+    height: 675
+    products:
+      - printed_baseball_hat
+      - printed_trucker_hat
+      - sport_sun_visor
+
+  popsockets:
+    width: 485
+    height: 485
+    products:
+      - popsockets_grip
+
+  iphone_cases:
+    width: 1800
+    height: 3200
+    products:
+      - iphone_case
+
+  tote_bags_throw_pillows:
+    width: 2925
+    height: 2925
+    products:
+      - tote_bag
+      - throw_pillow
+
+  tumblers_water_bottles:
+    width: 3000
+    height: 1400
+    products:
+      - tumbler
+      - water_bottle
+
+  mugs:
+    width: 2700
+    height: 1050
+    products:
+      - mug
+
+default_products:
+  - standard_tshirt
+
+products:
+  standard_tshirt:
+    template: tshirts_sweatshirts_long_sleeve_back_hoodie
+    width: 4500
+    height: 5400

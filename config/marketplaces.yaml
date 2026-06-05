@@ -1,0 +1,42 @@
+marketplaces:
+  - code: ".com"
+    language_group: English
+    locale: en
+  - code: ".co.uk"
+    language_group: English
+    locale: en
+  - code: ".de"
+    language_group: German
+    locale: de
+  - code: ".fr"
+    language_group: French
+    locale: fr
+  - code: ".it"
+    language_group: Italian
+    locale: it
+  - code: ".es"
+    language_group: Spanish
+    locale: es
+  - code: ".co.jp"
+    language_group: Japanese
+    locale: ja
+
+language_sections:
+  English:
+    marketplaces: [".com", ".co.uk"]
+    locale: en
+  German:
+    marketplaces: [".de"]
+    locale: de
+  French:
+    marketplaces: [".fr"]
+    locale: fr
+  Italian:
+    marketplaces: [".it"]
+    locale: it
+  Spanish:
+    marketplaces: [".es"]
+    locale: es
+  Japanese:
+    marketplaces: [".co.jp"]
+    locale: ja

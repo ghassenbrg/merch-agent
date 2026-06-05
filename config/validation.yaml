@@ -1,0 +1,33 @@
+ready_for_amazon_draft:
+  png_valid: true
+  transparent_background: true
+  correct_resolution: true
+  file_size_under_limit: true
+  design_not_too_small: true
+  design_not_cropped: true
+  trademark_precheck: "pass"
+  amazon_policy_precheck: "pass"
+  product_type_terms_removed: true
+  listing_min_lengths_passed: true
+  selected_marketplaces_have_copy: true
+  price_config_exists: true
+
+banned_product_type_terms:
+  english:
+    - shirt
+    - t-shirt
+    - tshirt
+    - tee
+    - hoodie
+    - sweatshirt
+    - long sleeve
+    - tank top
+    - mug
+    - tote bag
+    - pillow
+    - popsocket
+    - phone case
+    - tumbler
+    - water bottle
+    - hat
+    - visor

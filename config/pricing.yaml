@@ -1,0 +1,8 @@
+default_prices:
+  standard_tshirt:
+    ".com":
+      currency: USD
+      amount: 19.99
+    ".co.uk":
+      currency: GBP
+      amount: 17.99

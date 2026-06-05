@@ -40,7 +40,8 @@ Frontend:
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run build
+NUXT_PUBLIC_API_BASE=http://127.0.0.1:8000 HOST=0.0.0.0 PORT=3000 node .output/server/index.mjs
 ```
 
 Open:
@@ -48,6 +49,8 @@ Open:
 ```text
 http://localhost:3000
 ```
+
+Note: in this local Node 24/macOS environment, Nuxt's dev server currently hits a Vite IPC socket error. The production build/preview path above is verified and is the one to use for now.
 
 ## API
 

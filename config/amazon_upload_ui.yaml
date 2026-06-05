@@ -1,0 +1,25 @@
+amazon_upload_ui:
+  translation_option:
+    default: "provide_own_translations"
+    radio_label: "No, I'll provide my own translations"
+    never_use_auto_translation: true
+
+  required_fields:
+    - design_title
+    - brand
+
+  optional_but_recommended_fields:
+    - feature_bullet_1
+    - feature_bullet_2
+    - product_description
+
+  description:
+    min_chars: 75
+    max_chars: 2000
+
+  hard_rules:
+    - never_click_publish
+    - save_draft_only
+    - stop_on_warning
+    - stop_on_missing_required_field
+    - stop_on_negative_or_zero_royalty

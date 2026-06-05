@@ -1,0 +1,25 @@
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Node / Nuxt
+node_modules/
+.nuxt/
+.output/
+npm-debug.log*
+
+# Runtime data
+data/*.sqlite3
+data/*.sqlite3-*
+data/drafts/*
+data/designs/*
+data/screenshots/*
+data/logs/*
+!data/drafts/.gitkeep
+!data/designs/.gitkeep
+!data/screenshots/.gitkeep
+!data/logs/.gitkeep
