@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import drafts, workflows
+from app.api import config, drafts, runs, workflows
 from app.db.database import init_database, seed_database
 
 
@@ -35,4 +35,6 @@ def health() -> dict[str, str]:
 
 
 app.include_router(drafts.router, prefix="/api/drafts", tags=["drafts"])
+app.include_router(runs.router, prefix="/api/runs", tags=["runs"])
+app.include_router(config.router, prefix="/api", tags=["config"])
 app.include_router(workflows.router, prefix="/api", tags=["workflows"])

@@ -15,6 +15,7 @@ npm-debug.log*
 # Runtime data
 data/*.sqlite3
 data/*.sqlite3-*
+data/frontend-preview.log
 data/drafts/*
 data/designs/*
 data/screenshots/*

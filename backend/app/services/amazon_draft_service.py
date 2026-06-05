@@ -36,6 +36,7 @@ def start_amazon_draft(draft_id: str) -> JobResponse:
         raise HTTPException(status_code=400, detail="Publish must remain disabled.")
 
     job_id = f"job_{uuid4().hex[:12]}"
+    previous_status = draft.status
     draft.status = "AMAZON_DRAFT_SAVED"
     draft.amazon_draft["saved"] = True
     draft.amazon_draft["last_job_id"] = job_id
@@ -50,6 +51,19 @@ def start_amazon_draft(draft_id: str) -> JobResponse:
             WHERE draft_id = ?
             """,
             (draft.status, draft.model_dump_json(), draft.draft_id),
+        )
+        connection.execute(
+            """
+            INSERT INTO draft_events (draft_id, event_type, from_status, to_status, message)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                draft.draft_id,
+                "amazon_draft_simulated",
+                previous_status,
+                draft.status,
+                "Simulated Amazon Draft Assist saved the draft locally.",
+            ),
         )
 
     return JobResponse(

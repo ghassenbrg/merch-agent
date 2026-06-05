@@ -780,6 +780,96 @@ a {
   opacity: 0.72;
 }
 
+.filter-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px 10px 2px;
+}
+
+.filter-row label,
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.filter-row select,
+.select-field {
+  min-width: 0;
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--text);
+  padding: 0 10px;
+  font-weight: 700;
+}
+
+.library-list {
+  grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+}
+
+.table-list {
+  display: grid;
+  gap: 8px;
+}
+
+.table-row,
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fbfdfd;
+}
+
+.table-row span,
+.toggle-row span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.table-row strong,
+.toggle-row strong {
+  overflow-wrap: anywhere;
+}
+
+.table-row small,
+.toggle-row small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.muted-row {
+  opacity: 0.72;
+}
+
+.link-row:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 8px 18px rgba(8, 40, 47, 0.08);
+  transform: translateY(-1px);
+}
+
+.toggle-row input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  flex: 0 0 auto;
+}
+
 .readiness-strip {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -892,7 +982,8 @@ a {
   }
 
   .metric-grid,
-  .readiness-strip {
+  .readiness-strip,
+  .filter-row {
     grid-template-columns: 1fr;
   }
 
@@ -919,5 +1010,16 @@ a {
     height: auto;
     min-height: 22px;
     text-align: right;
+  }
+
+  .table-row,
+  .toggle-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .table-row .badge {
+    align-self: flex-start;
+    text-align: left;
   }
 }

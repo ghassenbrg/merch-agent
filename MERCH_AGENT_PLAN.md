@@ -845,3 +845,329 @@ Create fake autopilot sample packages
 ```
 
 This gives us a working local product before we connect real research, image generation, or Amazon browser automation.
+
+## Next Session Handoff Plan
+
+Updated after the initial implementation and UI redesign.
+
+### Current Implemented State
+
+- Root planning doc exists: `MERCH_AGENT_PLAN.md`.
+- README exists with setup and production-preview instructions.
+- Backend is scaffolded with FastAPI, SQLite, seeded draft data, draft APIs, workflow APIs, validation service, fake autopilot service, and simulated Amazon Draft Assist.
+- Backend tests pass: `cd backend && . .venv/bin/activate && pytest -q`.
+- Frontend is scaffolded with Nuxt 3, Vue, lucide icons, app layout, dashboard, draft queue, detail review, listing view, validation panel, score breakdown, and basic pages for Drafts, Runs, and Settings.
+- Frontend production build passes: `cd frontend && npm run build`.
+- Frontend audit passes: `cd frontend && npm audit --audit-level=moderate`.
+- Dashboard UI has been redesigned with a dark sidebar, cool workspace, white panels, teal selected states, semantic safety colors, stronger metric cards, and a clearer Amazon Draft Assist panel.
+- Sidebar selected menu state is route-driven and verified for `/runs` and `/settings`.
+- Browser QA was done with Playwright because the direct in-app Browser control tool was not exposed in the session.
+
+### Known Runtime Notes
+
+- Use production preview for the frontend. Nuxt dev mode previously had a Vite IPC socket issue under the local Node 24/macOS environment.
+- Start backend:
+
+```bash
+cd backend
+. .venv/bin/activate
+uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+- Start frontend after build:
+
+```bash
+cd frontend
+NUXT_PUBLIC_API_BASE=http://127.0.0.1:8000 HOST=0.0.0.0 PORT=3000 node .output/server/index.mjs
+```
+
+- Open app: `http://localhost:3000`.
+- If seeded data becomes noisy from tests or UI actions, reset the demo DB:
+
+```bash
+rm -f data/merch_agent.sqlite3
+find data -maxdepth 1 -name 'merch_agent.sqlite3-*' -delete
+```
+
+Then restart the backend so it reseeds.
+
+### Next Work Sequence
+
+#### 1. Repo Hygiene and Baseline Verification
+
+Goal: make the current implementation easy to continue safely.
+
+- Inspect `.gitignore` and ensure generated artifacts are excluded:
+  - `frontend/node_modules/`
+  - `frontend/.nuxt/`
+  - `frontend/.output/`
+  - `backend/.venv/`
+  - `backend/.pytest_cache/`
+  - `data/*.sqlite3`
+  - `data/*.sqlite3-*`
+  - `data/frontend-preview.log`
+  - generated screenshots
+- Run full verification:
+
+```bash
+cd backend && . .venv/bin/activate && pytest -q
+cd frontend && npm run build
+cd frontend && npm audit --audit-level=moderate
+```
+
+- Run Playwright smoke QA on desktop and mobile.
+- Do not implement Amazon live automation yet.
+
+#### 2. Finish Core Dashboard Workflow
+
+Goal: make the local review dashboard usable beyond the first screen.
+
+- Build real Drafts page:
+  - list all drafts
+  - filters by status, product, marketplace
+  - link to individual draft detail route
+- Add draft detail route:
+  - `frontend/pages/drafts/[id].vue`
+  - reuse the current dashboard detail components
+  - keep actions route-safe and status-aware
+- Build Runs page:
+  - show autopilot run history from API
+  - show generated draft count and status outcomes
+  - show started/completed timestamps
+- Build Settings page:
+  - display config from YAML-derived backend endpoints
+  - marketplace toggles
+  - default product selection
+  - pricing display
+  - validation thresholds
+- Add empty/loading/error states that match the redesigned UI.
+
+#### 3. Strengthen Backend Data Model
+
+Goal: move from JSON payload persistence toward clear app contracts.
+
+- Add explicit SQLite tables or a stronger repository layer for:
+  - drafts
+  - runs
+  - draft events/status history
+  - validation results
+  - listing groups
+  - Amazon draft attempts
+- Add backend endpoints:
+  - `GET /api/runs`
+  - `GET /api/runs/{run_id}`
+  - `GET /api/config`
+  - `PATCH /api/settings`
+  - `GET /api/drafts/{draft_id}/events`
+- Add tests for all new endpoints.
+
+#### 4. Replace Fake Autopilot With Real Local Package Workflow
+
+Goal: create real local `READY_FOR_AMAZON_DRAFT` packages without touching Amazon.
+
+- Implement agent modules in this order:
+  - product template resolver
+  - marketplace/language resolver
+  - niche candidate model
+  - scoring model
+  - conservative compliance gate
+  - design brief generator
+  - listing generator
+  - listing validator
+  - package assembler
+- Keep external research/image generation optional at first; support deterministic local fixtures so tests are stable.
+- Every generated package must produce:
+  - draft JSON
+  - listing fields
+  - validation report
+  - design metadata
+  - final status
+
+#### 5. Artwork Pipeline
+
+Goal: validate artwork contracts before any upload workflow exists.
+
+- Add PNG validation service:
+  - dimensions match selected product template
+  - transparent background required
+  - file size threshold
+  - safe placement metadata
+  - no cropped design signal
+- Add fixture PNGs for pass/fail cases.
+- Add tests for every validation rule.
+- Keep actual design generation as a separate step after validation contracts are solid.
+
+#### 6. Amazon Draft Assist Dry Run
+
+Goal: prove safety before any live Amazon interaction.
+
+- Keep Amazon interaction manual, one draft only, and save-draft only.
+- Implement dry-run Playwright operator with:
+  - controlled browser profile path
+  - selector map from `config/amazon_upload_ui.yaml`
+  - draft lock before starting
+  - screenshot capture at each step
+  - dangerous action blocker
+  - no live submit/publish paths
+- Add tests that blocked labels cannot be clicked:
+  - Publish
+  - Submit
+  - Submit for review
+  - Make live
+  - Update live listing
+- Add UI confirmation modal with exact safety copy.
+
+#### 7. Controlled Live Draft Save
+
+Goal: only after dry-run safety is tested, save one Amazon draft manually.
+
+- Require user confirmation in UI.
+- Require draft status `READY_FOR_AMAZON_DRAFT`.
+- Fill one package only.
+- Select “No, I’ll provide my own translations.”
+- Save as draft only.
+- Capture screenshots before and after.
+- Update local status to `AMAZON_DRAFT_SAVED` or `AMAZON_DRAFT_FAILED`.
+- Never publish or submit for review.
+
+### Latest Completed Milestone: Local Dashboard Workflow
+
+Completed after the initial dashboard redesign:
+
+- Repo hygiene was checked and generated artifacts are ignored, including Nuxt build output, Python caches, SQLite files, generated screenshots, and `data/frontend-preview.log`.
+- Backend now exposes the dashboard support APIs:
+  - `GET /api/runs`
+  - `GET /api/runs/{run_id}`
+  - `GET /api/config`
+  - `PATCH /api/settings`
+  - `GET /api/drafts/{draft_id}/events`
+  - `GET /api/drafts/{draft_id}/design/final.png`
+- SQLite now records run-to-draft links, draft events/status history, and local settings overrides.
+- The Nuxt dashboard has real data-backed pages:
+  - `frontend/pages/drafts/index.vue`
+  - `frontend/pages/drafts/[id].vue`
+  - `frontend/pages/runs/index.vue`
+  - `frontend/pages/settings.vue`
+- Draft detail review includes products, selected/excluded marketplaces, validation, score, listing groups, draft events, readiness checks, and the simulated Amazon Draft Assist action.
+- Runs page shows run history, generated draft counts, outcomes, logs, and draft links.
+- Settings page shows YAML-derived config/contracts for marketplaces, products, prices, validation, language sections, and Amazon Draft Assist guardrails.
+- Focused backend tests were added for the new endpoints.
+
+Verification completed:
+
+```bash
+cd backend && . .venv/bin/activate && pytest -q
+cd frontend && npm run build
+cd frontend && npm audit --audit-level=moderate
+```
+
+Playwright QA was run against production preview on desktop and mobile for:
+
+```text
+/
+/drafts
+/drafts/drf_20260605_0001
+/runs
+/settings
+```
+
+Result: all routes returned 200, no console/page errors, and no horizontal overflow after the mobile table-row fix.
+
+### Immediate Next Session Recommendation
+
+Start item 4 from the Next Work Sequence: replace the fake autopilot with a real deterministic local package workflow. Keep it fixture-driven first so tests are stable and the UI has real local packages before any external research, image generation, or Amazon browser work exists.
+
+Do the next session in this order:
+
+1. Baseline verify:
+   - `cd backend && . .venv/bin/activate && pytest -q`
+   - `cd frontend && npm run build`
+   - `cd frontend && npm audit --audit-level=moderate`
+2. Add deterministic agent/domain modules:
+   - product template resolver
+   - marketplace/language resolver
+   - niche candidate model
+   - scoring model
+   - conservative compliance gate
+   - design brief generator
+   - listing generator
+   - listing validator
+   - package assembler
+3. Replace the fake autopilot service path so `/api/workflows/autopilot/run` creates real local draft package artifacts under `data/drafts/`, while continuing to write SQLite draft/run records for the dashboard.
+4. Keep all new workflow tests fixture-driven and deterministic.
+5. Ensure generated packages include:
+   - draft JSON
+   - listing fields
+   - validation report
+   - design metadata
+   - final status
+6. Re-run backend tests, frontend build, audit, and Playwright desktop/mobile QA.
+
+Out of scope for the next session:
+
+- Do not implement live Amazon browser automation.
+- Do not connect external research APIs yet unless explicitly requested.
+- Do not connect real image generation yet; use deterministic design metadata/briefs and placeholder-safe package contracts.
+- Do not publish, submit for review, batch upload, edit live listings, or click dangerous Amazon actions.
+
+## Copy/Paste Prompt For Next Session
+
+Use this prompt in a new Codex session from `/Users/ghassenbrg/git/merch-agent`:
+
+```text
+We are continuing the Merch Agent project in /Users/ghassenbrg/git/merch-agent.
+
+Read MERCH_AGENT_PLAN.md first, especially "Next Session Handoff Plan", "Latest Completed Milestone: Local Dashboard Workflow", and "Immediate Next Session Recommendation".
+
+Current state:
+- FastAPI backend has SQLite seed data, draft APIs, workflow API, validation, simulated Amazon Draft Assist, run history APIs, config/settings APIs, draft event APIs, and focused tests.
+- Nuxt 3 frontend has the redesigned dashboard UI plus real Drafts, draft detail, Runs, and Settings pages backed by the API.
+- Production frontend preview should be used, not Nuxt dev mode, because dev mode previously had a Vite IPC socket issue on this machine.
+- Generated build/runtime artifacts are ignored.
+
+Hard safety constraints:
+- Autopilot must never touch Amazon.
+- Amazon Draft Assist remains manual, one draft at a time, save draft only, and simulated until dry-run safety work is explicitly started.
+- Never publish, submit for review, batch upload, edit live listings, or click dangerous Amazon actions.
+- Do not implement live Amazon browser automation in this session.
+
+First verify:
+cd backend && . .venv/bin/activate && pytest -q
+cd frontend && npm run build
+cd frontend && npm audit --audit-level=moderate
+
+Next milestone:
+Replace the fake autopilot with a real deterministic local package workflow, still with zero Amazon interaction and no external services required.
+
+Implement in this order:
+1. Product template resolver using config/product_templates.yaml.
+2. Marketplace/language resolver using config/marketplaces.yaml.
+3. Deterministic niche candidate model with local fixture candidates.
+4. Scoring model that produces demand/trend/saturation/compliance/overall values.
+5. Conservative compliance gate that blocks risky candidates before package assembly.
+6. Design brief generator that creates auditable design metadata, not real image generation yet.
+7. Listing generator and listing validator that enforce banned product-type terms and required fields.
+8. Package assembler that writes local artifacts under data/drafts/ and creates SQLite draft/run records for the existing dashboard.
+9. Focused backend tests for each resolver/generator/gate plus the autopilot endpoint.
+
+Generated local packages must include:
+- draft JSON
+- listing fields
+- validation report
+- design metadata
+- final status, preferably READY_FOR_AMAZON_DRAFT only when all local checks pass
+
+After implementation:
+cd backend && . .venv/bin/activate && pytest -q
+cd frontend && npm run build
+cd frontend && npm audit --audit-level=moderate
+
+Then run Playwright desktop/mobile QA against production preview for:
+/
+/drafts
+/drafts/<new_generated_draft_id>
+/runs
+/settings
+
+Do not start Amazon dry-run or live automation work unless explicitly instructed after this local package workflow is complete.
+```

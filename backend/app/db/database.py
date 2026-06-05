@@ -51,6 +51,28 @@ def init_database() -> None:
                 message TEXT NOT NULL,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS run_drafts (
+                run_id TEXT NOT NULL,
+                draft_id TEXT NOT NULL,
+                PRIMARY KEY (run_id, draft_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS draft_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                draft_id TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                from_status TEXT,
+                to_status TEXT,
+                message TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                payload TEXT NOT NULL,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
             """
         )
 
@@ -59,6 +81,26 @@ def seed_database() -> None:
     with get_connection() as connection:
         existing = connection.execute("SELECT COUNT(*) AS count FROM drafts").fetchone()
         if existing and existing["count"] > 0:
+            rows = connection.execute("SELECT draft_id, status FROM drafts").fetchall()
+            for row in rows:
+                event = connection.execute(
+                    "SELECT id FROM draft_events WHERE draft_id = ? LIMIT 1",
+                    (row["draft_id"],),
+                ).fetchone()
+                if event is None:
+                    connection.execute(
+                        """
+                        INSERT INTO draft_events (draft_id, event_type, from_status, to_status, message)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (
+                            row["draft_id"],
+                            "backfilled",
+                            None,
+                            row["status"],
+                            "Existing draft imported into status history.",
+                        ),
+                    )
             return
 
         for draft in SAMPLE_DRAFTS:
@@ -73,5 +115,18 @@ def seed_database() -> None:
                     draft["listing_groups"]["English"]["design_title"],
                     draft["score"]["overall"],
                     json.dumps(draft),
+                ),
+            )
+            connection.execute(
+                """
+                INSERT INTO draft_events (draft_id, event_type, from_status, to_status, message)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    draft["draft_id"],
+                    "seeded",
+                    None,
+                    draft["status"],
+                    "Seed draft loaded for local dashboard review.",
                 ),
             )

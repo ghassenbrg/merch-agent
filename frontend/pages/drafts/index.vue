@@ -1,17 +1,106 @@
 <script setup lang="ts">
+import type { DraftSummary } from '~/composables/useApi'
+import { Filter, Search } from '@lucide/vue'
+
 definePageMeta({ layout: 'default' })
+
+const base = useApiBase()
+const query = ref('')
+const statusFilter = ref('all')
+const productFilter = ref('all')
+const marketplaceFilter = ref('all')
+
+const { data: drafts, pending, error, refresh } = await useFetch<DraftSummary[]>(`${base}/api/drafts`)
+
+const statuses = computed(() => [...new Set((drafts.value || []).map((draft) => draft.status))].sort())
+const products = computed(() => [...new Set((drafts.value || []).map((draft) => draft.product_label))].sort())
+const marketplaces = computed(() => {
+  const codes = (drafts.value || []).flatMap((draft) => draft.selected_marketplaces)
+  return [...new Set(codes)].sort()
+})
+
+const filteredDrafts = computed(() => {
+  const search = query.value.trim().toLowerCase()
+  return (drafts.value || []).filter((draft) => {
+    const matchesSearch = !search || [
+      draft.title,
+      draft.niche,
+      draft.status,
+      draft.product_label,
+      draft.selected_marketplaces.join(' '),
+    ].some((value) => value.toLowerCase().includes(search))
+
+    return matchesSearch
+      && (statusFilter.value === 'all' || draft.status === statusFilter.value)
+      && (productFilter.value === 'all' || draft.product_label === productFilter.value)
+      && (marketplaceFilter.value === 'all' || draft.selected_marketplaces.includes(marketplaceFilter.value))
+  })
+})
+
+function openDraft(draftId: string) {
+  navigateTo(`/drafts/${draftId}`)
+}
 </script>
 
 <template>
-  <div class="simple-page">
-    <div>
-      <h1 class="page-title">Drafts</h1>
-      <p class="page-subtitle">Browse generated packages and return to the dashboard for detailed review.</p>
-    </div>
-    <div class="panel">
-      <div class="panel-body empty">
-        Draft library views will use the same package cards, status filters, and safety rules as the dashboard.
+  <div class="section-stack">
+    <header class="command-bar">
+      <div class="command-copy">
+        <h1 class="page-title">Drafts</h1>
+        <p class="page-subtitle">Generated local packages with status, product, and marketplace filters.</p>
       </div>
-    </div>
+      <button class="btn" :disabled="pending" @click="refresh">Refresh</button>
+    </header>
+
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <h2 class="panel-title">Draft Library</h2>
+          <span class="draft-meta">{{ filteredDrafts.length }} shown · {{ drafts?.length || 0 }} total</span>
+        </div>
+        <div class="search-box">
+          <Search :size="15" />
+          <input v-model="query" type="search" placeholder="Search drafts" />
+        </div>
+      </div>
+
+      <div class="filter-row">
+        <label>
+          <Filter :size="14" />
+          <span>Status</span>
+          <select v-model="statusFilter">
+            <option value="all">All statuses</option>
+            <option v-for="status in statuses" :key="status" :value="status">{{ status }}</option>
+          </select>
+        </label>
+        <label>
+          <span>Product</span>
+          <select v-model="productFilter">
+            <option value="all">All products</option>
+            <option v-for="product in products" :key="product" :value="product">{{ product }}</option>
+          </select>
+        </label>
+        <label>
+          <span>Marketplace</span>
+          <select v-model="marketplaceFilter">
+            <option value="all">All marketplaces</option>
+            <option v-for="marketplace in marketplaces" :key="marketplace" :value="marketplace">{{ marketplace }}</option>
+          </select>
+        </label>
+      </div>
+
+      <div v-if="pending" class="empty">Loading drafts...</div>
+      <div v-else-if="error" class="empty">Backend is not available at {{ base }}.</div>
+      <div v-else class="draft-list library-list">
+        <DraftCard
+          v-for="draft in filteredDrafts"
+          :key="draft.draft_id"
+          :draft="draft"
+          :selected="false"
+          @click="openDraft(draft.draft_id)"
+        />
+        <div v-if="!filteredDrafts.length" class="empty compact">No drafts match these filters.</div>
+      </div>
+    </section>
   </div>
 </template>

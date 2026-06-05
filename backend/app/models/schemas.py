@@ -14,6 +14,15 @@ class DraftSummary(BaseModel):
     eligible_for_amazon_draft: bool
 
 
+class DraftEvent(BaseModel):
+    draft_id: str
+    event_type: str
+    from_status: str | None = None
+    to_status: str | None = None
+    message: str
+    created_at: str
+
+
 class Draft(BaseModel):
     draft_id: str
     status: str
@@ -61,8 +70,40 @@ class RunResponse(BaseModel):
     message: str
 
 
+class RunSummary(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    run_id: str = Field(alias="runId")
+    mode: str
+    status: str
+    created_at: str
+    completed_at: str | None = None
+    generated_draft_count: int = Field(alias="generatedDraftCount")
+    status_outcomes: dict[str, int] = Field(alias="statusOutcomes")
+
+
+class RunDetail(RunSummary):
+    created_draft_ids: list[str] = Field(alias="createdDraftIds")
+    logs: list["RunLog"]
+
+
 class RunLog(BaseModel):
     run_id: str
     level: str
     message: str
     created_at: str
+
+
+class ConfigResponse(BaseModel):
+    product_templates: dict[str, Any]
+    marketplaces: dict[str, Any]
+    pricing: dict[str, Any]
+    validation: dict[str, Any]
+    amazon_upload_ui: dict[str, Any]
+    settings: dict[str, Any]
+
+
+class SettingsPatch(BaseModel):
+    default_products: list[str] | None = None
+    enabled_marketplaces: list[str] | None = None
+    default_prices: dict[str, Any] | None = None
