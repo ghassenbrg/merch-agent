@@ -109,6 +109,39 @@ class AutopilotRequest(BaseModel):
     production_mode: bool = False
 
 
+class AgentCandidatePayload(BaseModel):
+    candidate_id: str | None = Field(default=None, min_length=1, max_length=120, pattern=r"^[a-zA-Z0-9_\\-]+$")
+    niche: str = Field(min_length=3, max_length=160)
+    audience: str = Field(min_length=3, max_length=240)
+    keywords: list[str] = Field(default_factory=list, max_length=30)
+    demand_signal: int = Field(default=70, ge=0, le=100)
+    trend_signal: int = Field(default=70, ge=0, le=100)
+    saturation_signal: int = Field(default=50, ge=0, le=100)
+    compliance_signal: int = Field(default=90, ge=0, le=100)
+    design_angle: str = Field(min_length=3, max_length=500)
+    listing_angle: str = Field(min_length=3, max_length=500)
+    risk_terms: list[str] = Field(default_factory=list, max_length=50)
+
+
+class AgentPackageRequest(BaseModel):
+    candidate: AgentCandidatePayload
+    product: str = Field(default="standard_tshirt", min_length=1, max_length=80, pattern=r"^[a-z0-9_]+$")
+    marketplaces: list[str] | None = Field(default=None, max_length=20)
+    score: dict[str, float] | None = None
+    listing_groups: dict[str, dict[str, Any]] | None = None
+    artwork_path: str | None = Field(default=None, max_length=2000)
+    creative_brief: dict[str, Any] | None = None
+    research_trace: dict[str, Any] | None = None
+
+
+class AgentPackageResponse(BaseModel):
+    draft_id: str
+    status: str
+    artifact_dir: str
+    message: str
+    validation: dict[str, Any]
+
+
 class RunResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 

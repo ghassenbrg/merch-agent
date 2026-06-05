@@ -8,6 +8,15 @@ CONFIG_DIR = REPO_ROOT / "config"
 DATABASE_PATH = DATA_DIR / "merch_agent.sqlite3"
 
 
+def resolve_runtime_path(path_value: str) -> Path:
+    path = Path(path_value)
+    if path.is_absolute():
+        return path.resolve()
+    if path.parts and path.parts[0] == "data":
+        return (DATA_DIR / Path(*path.parts[1:])).resolve()
+    return (REPO_ROOT / path).resolve()
+
+
 def ensure_data_directories() -> None:
     for path in [
         DATA_DIR,

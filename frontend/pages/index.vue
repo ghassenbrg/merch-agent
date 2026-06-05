@@ -2,6 +2,7 @@
 import type { Draft, DraftSummary, RunResponse, SchedulerStatus, StatusResponse } from '~/composables/useApi'
 import {
   AlertTriangle,
+  Archive,
   Bot,
   CheckCircle2,
   ClipboardCheck,
@@ -13,6 +14,7 @@ import {
   Settings2,
   ShieldCheck,
   Sparkles,
+  Trash2,
   XCircle,
 } from '@lucide/vue'
 
@@ -25,6 +27,7 @@ const selectedDraftId = ref<string | null>(null)
 const actionMessage = ref('')
 const isRunning = ref(false)
 const isAmazonBusy = ref(false)
+const actionBusy = ref('')
 const query = ref('')
 const activeFilter = ref<'all' | 'ready' | 'needs_fix' | 'saved' | 'blocked'>('all')
 const bulkCount = ref(2)
@@ -134,12 +137,39 @@ async function runAutopilot() {
 
 async function postDraftAction(action: string) {
   if (!selectedDraftId.value) return
-  const response = await $fetch<StatusResponse>(`${base}/api/drafts/${selectedDraftId.value}/${action}`, {
-    method: 'POST',
-    headers: apiHeaders,
-  })
-  actionMessage.value = response.message
-  await Promise.all([refresh(), refreshSelected()])
+  actionBusy.value = action
+  try {
+    const response = await $fetch<StatusResponse>(`${base}/api/drafts/${selectedDraftId.value}/${action}`, {
+      method: 'POST',
+      headers: apiHeaders,
+    })
+    actionMessage.value = response.message
+    await Promise.all([refresh(), refreshSelected()])
+  } finally {
+    actionBusy.value = ''
+  }
+}
+
+async function deleteSelectedDraft() {
+  if (!selectedDraftId.value) return
+  const draftId = selectedDraftId.value
+  const draftTitle = selectedDraft.value?.listing_groups.English?.design_title || draftId
+  const confirmed = window.confirm(`Delete "${draftTitle}" locally? This removes the draft, run link, and generated artifact files.`)
+  if (!confirmed) return
+
+  actionBusy.value = 'delete'
+  try {
+    const response = await $fetch<StatusResponse>(`${base}/api/drafts/${draftId}`, {
+      method: 'DELETE',
+      headers: apiHeaders,
+    })
+    actionMessage.value = response.message
+    await refresh()
+    selectedDraftId.value = drafts.value?.[0]?.draft_id || null
+    await refreshSelected()
+  } finally {
+    actionBusy.value = ''
+  }
 }
 
 async function afterListingSaved(message: string) {
@@ -343,10 +373,18 @@ async function startAmazonDraft() {
                 </div>
               </div>
               <div class="toolbar action-toolbar">
-                <button class="btn" @click="postDraftAction('approve')">Approve</button>
-                <button class="btn" @click="postDraftAction('regenerate-design')">Regenerate Design</button>
-                <button class="btn" @click="postDraftAction('regenerate-listing')">Regenerate Listing</button>
-                <button class="btn danger" @click="postDraftAction('reject')">Reject</button>
+                <button class="btn" :disabled="!!actionBusy" @click="postDraftAction('approve')">Approve</button>
+                <button class="btn" :disabled="!!actionBusy" @click="postDraftAction('regenerate-design')">Regenerate Design</button>
+                <button class="btn" :disabled="!!actionBusy" @click="postDraftAction('regenerate-listing')">Regenerate Listing</button>
+                <button class="btn danger" :disabled="!!actionBusy" @click="postDraftAction('reject')">Reject</button>
+                <button class="btn danger" :disabled="!!actionBusy" @click="postDraftAction('archive')">
+                  <Archive :size="15" />
+                  Archive
+                </button>
+                <button class="btn danger" :disabled="!!actionBusy" @click="deleteSelectedDraft">
+                  <Trash2 :size="15" />
+                  Delete
+                </button>
               </div>
               <div class="assist-panel">
                 <div class="assist-copy">

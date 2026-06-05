@@ -7,6 +7,7 @@ from typing import Iterator
 
 from app.core.paths import DATABASE_PATH, ensure_data_directories
 from app.fixtures.sample_data import SAMPLE_DRAFTS
+from app.fixtures.sample_artifacts import ensure_sample_artifacts
 from app.models.schemas import Draft
 from app.db.repositories import insert_draft_event, upsert_draft_projection
 
@@ -235,6 +236,12 @@ def seed_database() -> None:
                             "Existing draft imported into status history.",
                         ),
                     )
+            sample_ids = {draft["draft_id"] for draft in SAMPLE_DRAFTS}
+            sample_rows = connection.execute(
+                "SELECT payload FROM drafts WHERE draft_id IN (?, ?)",
+                tuple(sorted(sample_ids)),
+            ).fetchall()
+            ensure_sample_artifacts([json.loads(row["payload"]) for row in sample_rows])
             return
 
         for draft in SAMPLE_DRAFTS:
@@ -248,3 +255,4 @@ def seed_database() -> None:
                 None,
                 draft_model.status,
             )
+        ensure_sample_artifacts(SAMPLE_DRAFTS)

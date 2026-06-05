@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import json
+import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException
 
-from app.core.paths import DATA_DIR, REPO_ROOT
+from app.core.paths import DATA_DIR, REPO_ROOT, resolve_runtime_path
 from app.db.database import get_connection
 from app.db.repositories import insert_draft_event, upsert_draft_projection
 from app.models.schemas import (
@@ -238,10 +239,7 @@ def get_draft_changes(draft_id: str) -> list[DraftChange]:
 
 
 def _artifact_path(path_value: str) -> Path:
-    path = Path(path_value)
-    if not path.is_absolute():
-        path = REPO_ROOT / path
-    return path.resolve()
+    return resolve_runtime_path(path_value)
 
 
 def _artifact_response(draft_id: str, key: str, label: str, kind: str, path: Path) -> DraftArtifact:
@@ -440,6 +438,41 @@ def archive_draft(draft_id: str) -> StatusResponse:
     message = "Draft archived."
     _save_draft(draft, previous_status, "archived", message)
     return StatusResponse(draft_id=draft_id, status=draft.status, message=message)
+
+
+def _remove_data_subtree(path: Path) -> None:
+    data_root = DATA_DIR.resolve()
+    resolved = path.resolve()
+    if not resolved.is_relative_to(data_root):
+        raise HTTPException(status_code=400, detail="Refusing to delete path outside data directory.")
+    if resolved.is_dir():
+        shutil.rmtree(resolved)
+    elif resolved.exists():
+        resolved.unlink()
+
+
+def delete_draft(draft_id: str) -> StatusResponse:
+    require_draft(draft_id)
+    with get_connection() as connection:
+        for table in [
+            "listing_groups",
+            "validation_results",
+            "design_artifacts",
+            "amazon_draft_attempts",
+            "draft_events",
+            "run_drafts",
+            "drafts",
+        ]:
+            connection.execute(f"DELETE FROM {table} WHERE draft_id = ?", (draft_id,))
+
+    _remove_data_subtree(DATA_DIR / "drafts" / draft_id)
+    _remove_data_subtree(DATA_DIR / "designs" / draft_id)
+
+    return StatusResponse(
+        draft_id=draft_id,
+        status="DELETED",
+        message="Draft deleted locally.",
+    )
 
 
 def regenerate_design(draft_id: str) -> StatusResponse:

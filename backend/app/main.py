@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
-from app.api import config, drafts, runs, workflows
+from app.api import agent, config, drafts, runs, workflows
 from app.core.health import readiness_status
 from app.core.logging import configure_logging
 from app.core.security import AccessControlMiddleware, SecurityHeadersMiddleware
@@ -56,7 +56,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,
     allow_credentials=False,
-    allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["authorization", "content-type", "x-merch-agent-token"],
 )
 
@@ -79,3 +79,4 @@ app.include_router(drafts.router, prefix="/api/drafts", tags=["drafts"])
 app.include_router(runs.router, prefix="/api/runs", tags=["runs"])
 app.include_router(config.router, prefix="/api", tags=["config"])
 app.include_router(workflows.router, prefix="/api", tags=["workflows"])
+app.include_router(agent.router, prefix="/api", tags=["agent"])

@@ -1,0 +1,25 @@
+{
+  "name": "merch-agent-codex",
+  "version": "0.1.0+codex.20260605134830",
+  "description": "Codex plugin for running Merch Agent as a policy-bounded autonomous AI research, decisioning, artwork, listing, validation, and package workflow.",
+  "author": {
+    "name": "Merch Agent"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Merch Agent Codex",
+    "shortDescription": "Policy-bounded autonomous Merch research and package creation.",
+    "longDescription": "Merch Agent Codex turns Codex into the agent control plane for end-to-end Amazon Merch opportunity research, trend analysis, competitor comparison, adaptive candidate scoring, niche and subniche decisions, creative direction, image generation, listing/keyword/price/marketplace decisions, local backend validation, and dashboard review. It treats local config as output contract and safety context, while allowing evidence-backed decisions outside weak defaults as long as Amazon policy and IP safety remain intact.",
+    "developerName": "Merch Agent",
+    "category": "Productivity",
+    "capabilities": [
+      "web-research",
+      "agent-workflows",
+      "image-generation",
+      "market-analysis",
+      "compliance-review",
+      "local-backend"
+    ],
+    "defaultPrompt": "Run Merch Agent as a policy-bounded autonomous merch strategist: search broadly, override weak defaults when evidence supports it, choose the best compliant opportunities, generate original artwork and listings, validate packages, and prepare only review-ready drafts."
+  }
+}

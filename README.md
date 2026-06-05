@@ -14,6 +14,7 @@ See [MERCH_AGENT_PLAN.md](./MERCH_AGENT_PLAN.md) for the full implementation pla
 Phase 12 operations docs:
 
 - [Beginner how-to](./docs/BEGINNER_HOW_TO.md)
+- [Codex plugin first run](./docs/CODEX_PLUGIN_FIRST_RUN.md)
 - [Operator runbook](./docs/OPERATOR_RUNBOOK.md)
 - [Production acceptance checklist](./docs/PRODUCTION_ACCEPTANCE.md)
 
@@ -46,6 +47,14 @@ Optional full checks before starting:
 ```bash
 MERCH_AGENT_RUN_CHECKS=1 ./scripts/ready.sh
 ```
+
+Clean local generated data before starting over:
+
+```bash
+./scripts/clean_data.sh --force
+```
+
+Add `--include-browser-profiles` only when you also want to remove controlled Amazon browser session data.
 
 Backend:
 
@@ -131,6 +140,7 @@ Drafts:
 ```text
 GET  /api/drafts
 GET  /api/drafts/{draft_id}
+DELETE /api/drafts/{draft_id}
 POST /api/drafts/{draft_id}/approve
 POST /api/drafts/{draft_id}/reject
 POST /api/drafts/{draft_id}/archive

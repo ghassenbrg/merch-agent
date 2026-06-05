@@ -120,9 +120,11 @@ def assemble_local_package(
     candidate_audit: CandidateAuditRecord | None = None,
     research_snapshot: dict[str, Any] | None = None,
     research_snapshot_path: str | None = None,
+    listing_groups_override: dict[str, dict[str, Any]] | None = None,
+    design_override: dict[str, Any] | None = None,
 ) -> AssembledPackage:
     selected_marketplaces = marketplace_plan.selected_codes
-    listing_groups = generate_listing_groups(candidate, marketplace_plan.language_sections)
+    listing_groups = listing_groups_override or generate_listing_groups(candidate, marketplace_plan.language_sections)
     banned_terms = validation_config.get("banned_product_type_terms", {})
     field_constraints = validation_config.get("listing_field_constraints", {})
     translation_required_locales = validation_config.get(
@@ -145,7 +147,7 @@ def assemble_local_package(
         price["marketplace_prices"].get(marketplace) is not None
         for marketplace in selected_marketplaces
     )
-    design = generate_design_brief(candidate, product, draft_id)
+    design = design_override or generate_design_brief(candidate, product, draft_id)
     artwork_validation = validate_artwork_png(
         png_path=design.get("final_png"),
         expected_width=product.width,

@@ -1,9 +1,7 @@
-from pathlib import Path
-
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
-from app.core.paths import REPO_ROOT
+from app.core.paths import resolve_runtime_path
 from app.models.schemas import (
     AmazonDraftRequest,
     Draft,
@@ -18,6 +16,7 @@ from app.models.schemas import (
 from app.services.amazon_draft_service import start_amazon_draft
 from app.services.draft_service import (
     archive_draft,
+    delete_draft,
     approve_draft,
     get_draft_artifacts,
     get_draft_changes,
@@ -74,10 +73,7 @@ def final_png(draft_id: str) -> FileResponse:
     if draft is None:
         raise HTTPException(status_code=404, detail="Draft not found")
 
-    design_path = Path(str(draft.design.get("final_png", "")))
-    if not design_path.is_absolute():
-        design_path = REPO_ROOT / design_path
-    design_path = design_path.resolve()
+    design_path = resolve_runtime_path(str(draft.design.get("final_png", "")))
 
     if not design_path.is_file():
         raise HTTPException(status_code=404, detail="Final PNG not found")
@@ -107,6 +103,11 @@ def reject(draft_id: str) -> StatusResponse:
 @router.post("/{draft_id}/archive", response_model=StatusResponse)
 def archive(draft_id: str) -> StatusResponse:
     return archive_draft(draft_id)
+
+
+@router.delete("/{draft_id}", response_model=StatusResponse)
+def delete(draft_id: str) -> StatusResponse:
+    return delete_draft(draft_id)
 
 
 @router.post("/{draft_id}/regenerate-design", response_model=StatusResponse)

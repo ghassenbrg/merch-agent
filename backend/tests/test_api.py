@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from app.core.paths import DATA_DIR
 from app.main import app
 
 
@@ -96,12 +97,49 @@ def test_draft_artifact_links_are_available() -> None:
     assert any(artifact["key"] == "change_history" for artifact in artifacts)
 
 
+def test_seeded_sample_final_png_is_available() -> None:
+    response = client.get("/api/drafts/drf_20260605_0002/design/final.png")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.content.startswith(b"\x89PNG")
+
+
 def test_draft_events_are_available() -> None:
     response = client.get("/api/drafts/drf_20260605_0001/events")
     assert response.status_code == 200
     events = response.json()
     assert len(events) >= 1
     assert events[0]["draft_id"] == "drf_20260605_0001"
+
+
+def test_delete_draft_removes_local_projection_and_artifacts() -> None:
+    run_response = client.post(
+        "/api/workflows/autopilot/run",
+        json={
+            "count": 1,
+            "default_product": "standard_tshirt",
+            "explore_marketplaces": True,
+            "touch_amazon": False,
+        },
+    )
+    assert run_response.status_code == 200
+    body = run_response.json()
+    draft_id = body["createdDraftIds"][0]
+    run_id = body["runId"]
+
+    assert (DATA_DIR / "drafts" / draft_id).is_dir()
+    assert (DATA_DIR / "designs" / draft_id).is_dir()
+
+    response = client.delete(f"/api/drafts/{draft_id}")
+    assert response.status_code == 200
+    assert response.json()["status"] == "DELETED"
+
+    assert client.get(f"/api/drafts/{draft_id}").status_code == 404
+    assert not (DATA_DIR / "drafts" / draft_id).exists()
+    assert not (DATA_DIR / "designs" / draft_id).exists()
+
+    run_detail = client.get(f"/api/runs/{run_id}").json()
+    assert draft_id not in run_detail["createdDraftIds"]
 
 
 def test_run_history_and_detail() -> None:

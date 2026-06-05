@@ -59,6 +59,26 @@ def test_write_requests_reject_untrusted_origins(monkeypatch: pytest.MonkeyPatch
     clear_rate_limit_state()
 
 
+def test_delete_preflight_is_allowed_for_frontend_origin(monkeypatch: pytest.MonkeyPatch) -> None:
+    clear_rate_limit_state()
+    monkeypatch.setenv("MERCH_AGENT_API_TOKEN", "phase11-token")
+
+    response = client.options(
+        "/api/drafts/drf_20260605_0002",
+        headers={
+            "Origin": "http://127.0.0.1:3000",
+            "Access-Control-Request-Method": "DELETE",
+            "Access-Control-Request-Headers": "authorization",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:3000"
+    assert "DELETE" in response.headers["access-control-allow-methods"]
+
+    clear_rate_limit_state()
+
+
 def test_write_requests_are_rate_limited(monkeypatch: pytest.MonkeyPatch) -> None:
     clear_rate_limit_state()
     monkeypatch.setenv("MERCH_AGENT_WRITE_RATE_LIMIT_PER_MINUTE", "1")

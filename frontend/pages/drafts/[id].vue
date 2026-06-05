@@ -13,6 +13,7 @@ import {
   Save,
   ShieldCheck,
   Sparkles,
+  Trash2,
 } from '@lucide/vue'
 
 definePageMeta({ layout: 'default' })
@@ -109,6 +110,23 @@ async function postDraftAction(action: string) {
     })
     actionMessage.value = response.message
     await Promise.all([refresh(), refreshEvents(), refreshChanges(), refreshArtifacts()])
+  } finally {
+    actionBusy.value = ''
+  }
+}
+
+async function deleteDraft() {
+  if (!draft.value) return
+  const confirmed = window.confirm(`Delete "${confirmationDraftTitle.value}" locally? This removes the draft, run link, and generated artifact files.`)
+  if (!confirmed) return
+
+  actionBusy.value = 'delete'
+  try {
+    await $fetch<StatusResponse>(`${base}/api/drafts/${draftId.value}`, {
+      method: 'DELETE',
+      headers: apiHeaders,
+    })
+    await navigateTo('/drafts')
   } finally {
     actionBusy.value = ''
   }
@@ -285,6 +303,10 @@ function artifactHref(artifact: DraftArtifact) {
               <button class="btn danger" :disabled="!!actionBusy" @click="postDraftAction('archive')">
                 <Archive :size="15" />
                 Archive
+              </button>
+              <button class="btn danger" :disabled="!!actionBusy" @click="deleteDraft">
+                <Trash2 :size="15" />
+                Delete
               </button>
             </div>
 

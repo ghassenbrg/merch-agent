@@ -42,6 +42,14 @@ Use this when you want it to run the safety checks before starting:
 MERCH_AGENT_RUN_CHECKS=1 ./scripts/ready.sh
 ```
 
+Clean generated local data before starting over:
+
+```bash
+./scripts/clean_data.sh --force
+```
+
+This backs up the SQLite database first, removes generated drafts/runs/artifacts/logs/exports, and keeps Amazon browser session data unless you add `--include-browser-profiles`.
+
 Manual backend setup:
 
 ```bash

@@ -404,6 +404,19 @@ a {
   transform: translateY(-1px);
 }
 
+.draft-list-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.draft-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .draft-title-line {
   display: flex;
   justify-content: space-between;
@@ -1159,6 +1172,14 @@ a {
   .review-edit-grid,
   .bulk-controls {
     grid-template-columns: 1fr;
+  }
+
+  .draft-list-item {
+    grid-template-columns: 1fr;
+  }
+
+  .draft-row-actions {
+    justify-content: flex-start;
   }
 
   .metric-grid {

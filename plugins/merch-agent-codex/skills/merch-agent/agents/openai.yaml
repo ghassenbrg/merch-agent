@@ -1,0 +1,4 @@
+interface:
+  display_name: "Merch Agent"
+  short_description: "Policy-bounded autonomous Merch package creation"
+  default_prompt: "Run Merch Agent as a policy-bounded autonomous merch strategist: search broadly, override weak defaults when evidence supports it, choose the best compliant opportunities, generate original artwork and listings, validate packages, and prepare only review-ready drafts."
