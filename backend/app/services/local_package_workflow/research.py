@@ -202,7 +202,7 @@ class DuckDuckGoInstantAnswerAdapter:
 
 class DuckDuckGoHtmlSaturationAdapter:
     adapter_id = "duckduckgo_html_saturation"
-    source_url = "https://duckduckgo.com/html/"
+    source_url = "https://html.duckduckgo.com/html/"
 
     def collect(self, candidate: NicheCandidate, timeout_seconds: float) -> list[ResearchAdapterResult]:
         response = httpx.get(
@@ -210,6 +210,7 @@ class DuckDuckGoHtmlSaturationAdapter:
             params={"q": f"{candidate.niche} gift design"},
             headers={"User-Agent": "MerchAgentResearch/0.1"},
             timeout=timeout_seconds,
+            follow_redirects=True,
         )
         response.raise_for_status()
         html = response.text
@@ -232,9 +233,84 @@ class DuckDuckGoHtmlSaturationAdapter:
         ]
 
 
+class DuckDuckGoHtmlMarketSignalsAdapter:
+    adapter_id = "duckduckgo_html_market_signals"
+    source_url = "https://html.duckduckgo.com/html/"
+
+    def collect(self, candidate: NicheCandidate, timeout_seconds: float) -> list[ResearchAdapterResult]:
+        response = httpx.get(
+            self.source_url,
+            params={"q": f"{candidate.niche} gift idea merch design"},
+            headers={"User-Agent": "MerchAgentResearch/0.1"},
+            timeout=timeout_seconds,
+            follow_redirects=True,
+        )
+        response.raise_for_status()
+        html = response.text
+        text = html.lower()
+        current_year = datetime.now(UTC).year
+        previous_year = current_year - 1
+        terms = [normalize_niche(term) for term in [candidate.niche, *candidate.keywords]]
+        tokens = {token for term in terms for token in term.split() if len(token) > 3}
+        result_mentions = len(re.findall(r"result__", html))
+        shopping_mentions = len(re.findall(r"shirt|tee|hoodie|etsy|redbubble|zazzle|amazon|gift", html, re.I))
+        token_overlap = sum(1 for token in tokens if token in text)
+        freshness_mentions = len(
+            re.findall(
+                rf"{current_year}|{previous_year}|new|trending|popular|best seller|gift guide",
+                text,
+            )
+        )
+        raw = {
+            "result_marker_count": result_mentions,
+            "marketplace_term_count": shopping_mentions,
+            "candidate_token_count": len(tokens),
+            "candidate_token_overlap": token_overlap,
+            "freshness_marker_count": freshness_mentions,
+        }
+        demand = _signal_value(38 + result_mentions * 4 + token_overlap * 5)
+        competition = _signal_value(24 + shopping_mentions * 4 + result_mentions * 2)
+        saturation = _signal_value(18 + shopping_mentions * 5 + result_mentions * 2)
+        trend = _signal_value(42 + freshness_mentions * 4 + token_overlap * 3)
+        return [
+            ResearchAdapterResult(
+                adapter_id=self.adapter_id,
+                signal_type="demand",
+                source_url=self.source_url,
+                raw=raw,
+                value=demand,
+                confidence=0.48,
+            ),
+            ResearchAdapterResult(
+                adapter_id=self.adapter_id,
+                signal_type="competition",
+                source_url=self.source_url,
+                raw=raw,
+                value=competition,
+                confidence=0.45,
+            ),
+            ResearchAdapterResult(
+                adapter_id=self.adapter_id,
+                signal_type="saturation",
+                source_url=self.source_url,
+                raw=raw,
+                value=saturation,
+                confidence=0.45,
+            ),
+            ResearchAdapterResult(
+                adapter_id=self.adapter_id,
+                signal_type="trend",
+                source_url=self.source_url,
+                raw=raw,
+                value=trend,
+                confidence=0.38,
+            ),
+        ]
+
+
 class GoogleTrendsDailyRssAdapter:
     adapter_id = "google_trends_daily_rss"
-    source_url = "https://trends.google.com/trends/trendingsearches/daily/rss"
+    source_url = "https://trends.google.com/trending/rss"
 
     def collect(self, candidate: NicheCandidate, timeout_seconds: float) -> list[ResearchAdapterResult]:
         response = httpx.get(
@@ -242,6 +318,7 @@ class GoogleTrendsDailyRssAdapter:
             params={"geo": "US"},
             headers={"User-Agent": "MerchAgentResearch/0.1"},
             timeout=timeout_seconds,
+            follow_redirects=True,
         )
         response.raise_for_status()
         text = response.text.lower()
@@ -267,6 +344,7 @@ class GoogleTrendsDailyRssAdapter:
 
 LIVE_ADAPTERS = {
     DuckDuckGoInstantAnswerAdapter.adapter_id: DuckDuckGoInstantAnswerAdapter,
+    DuckDuckGoHtmlMarketSignalsAdapter.adapter_id: DuckDuckGoHtmlMarketSignalsAdapter,
     DuckDuckGoHtmlSaturationAdapter.adapter_id: DuckDuckGoHtmlSaturationAdapter,
     GoogleTrendsDailyRssAdapter.adapter_id: GoogleTrendsDailyRssAdapter,
 }

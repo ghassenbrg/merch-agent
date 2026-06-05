@@ -318,7 +318,11 @@ def run_autopilot(
         status=status,
         createdDraftIds=created_draft_ids,
         message=(
-            "Autopilot completed deterministic local package generation. "
+            "Autopilot completed live-research local package generation. "
+            "Research snapshots were persisted before scoring. "
+            "No Amazon interaction occurred."
+            if created_draft_ids and request.production_mode
+            else "Autopilot completed deterministic local package generation. "
             "No Amazon interaction occurred."
             if created_draft_ids
             else (

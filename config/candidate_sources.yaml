@@ -128,19 +128,26 @@ candidate_research:
       enabled: false
       directory: backend/tests/fixtures/research_snapshots
     live_adapters:
-      enabled: false
+      enabled: true
       timeout_seconds: 8
       adapters:
+        - adapter_id: duckduckgo_html_market_signals
+          enabled: true
+          signals:
+            - demand
+            - trend
+            - competition
+            - saturation
         - adapter_id: duckduckgo_instant_answer
-          enabled: false
+          enabled: true
           signals:
             - demand
             - competition
         - adapter_id: duckduckgo_html_saturation
-          enabled: false
+          enabled: true
           signals:
             - saturation
         - adapter_id: google_trends_daily_rss
-          enabled: false
+          enabled: true
           signals:
             - trend

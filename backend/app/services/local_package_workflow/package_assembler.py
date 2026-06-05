@@ -172,6 +172,14 @@ def assemble_local_package(
         status = "LISTING_READY"
     if compliance.blocked:
         status = "BLOCKED_COMPLIANCE"
+    has_research_snapshot = research_snapshot is not None
+    score_source = (
+        "live_research_snapshot"
+        if has_research_snapshot and research_snapshot.get("source") == "live_adapters"
+        else "research_snapshot"
+        if has_research_snapshot
+        else "candidate_signal_fixture"
+    )
 
     draft_payload = {
         "draft_id": draft_id,
@@ -179,7 +187,13 @@ def assemble_local_package(
         "niche": candidate.niche,
         "summary": (
             f"Deterministic local package for {candidate.audience.lower()}. "
-            "No external services or Amazon interaction were used."
+            "Live research evidence was persisted before scoring. "
+            "No Amazon interaction was used."
+            if has_research_snapshot
+            else (
+                f"Deterministic local package for {candidate.audience.lower()}. "
+                "No external services or Amazon interaction were used."
+            )
         ),
         "score": score,
         "products": [product.to_payload(selected=True)],
@@ -199,13 +213,13 @@ def assemble_local_package(
         "price": price,
         "research": {
             **candidate.source_payload(),
-            "external_research_used": candidate.source_type.startswith("external"),
+            "external_research_used": has_research_snapshot or candidate.source_type.startswith("external"),
             "audit_record": (
                 candidate_audit.to_payload() if candidate_audit is not None else None
             ),
             "snapshot": research_snapshot,
             "snapshot_path": research_snapshot_path,
-            "score_source": "research_snapshot" if research_snapshot is not None else "candidate_signal_fixture",
+            "score_source": score_source,
         },
     }
     draft = Draft.model_validate(draft_payload)

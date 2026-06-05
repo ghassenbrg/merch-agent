@@ -29,6 +29,7 @@ const query = ref('')
 const activeFilter = ref<'all' | 'ready' | 'needs_fix' | 'saved' | 'blocked'>('all')
 const bulkCount = ref(2)
 const bulkProduct = ref('standard_tshirt')
+const liveResearchEnabled = ref(false)
 
 const { data: drafts, pending, error, refresh } = await useFetch<DraftSummary[]>(`${base}/api/drafts`, apiOptions)
 const { data: config } = await useFetch<any>(`${base}/api/config`, apiOptions)
@@ -38,6 +39,7 @@ watchEffect(() => {
   if (!selectedDraftId.value && drafts.value?.length) {
     selectedDraftId.value = drafts.value[0].draft_id
   }
+  liveResearchEnabled.value = Boolean(config.value?.settings?.autopilot_operations?.live_research_enabled)
 })
 
 const { data: selectedDraft, refresh: refreshSelected } = await useAsyncData<Draft | null>(
@@ -117,7 +119,7 @@ async function runAutopilot() {
         default_product: bulkProduct.value,
         explore_marketplaces: true,
         touch_amazon: false,
-        production_mode: false,
+        production_mode: liveResearchEnabled.value,
       },
     })
     actionMessage.value = response.message
@@ -210,9 +212,16 @@ async function startAmazonDraft() {
             <option v-for="[code] in productOptions" :key="String(code)" :value="String(code)">{{ code }}</option>
           </select>
         </label>
+        <label class="toggle-row inline-toggle">
+          <span>
+            <strong>Live research</strong>
+            <small>Collect web snapshots before scoring.</small>
+          </span>
+          <input v-model="liveResearchEnabled" type="checkbox" />
+        </label>
         <div class="notice muted-notice">
           <Settings2 :size="16" />
-          Autopilot request always sends touch_amazon=false and stops at local review status.
+          Autopilot always sends touch_amazon=false. Live research only affects scoring evidence.
         </div>
       </div>
     </section>

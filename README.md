@@ -25,6 +25,7 @@ This version includes:
 - Seeded sample draft data.
 - Draft list/detail APIs.
 - Local package autopilot, scheduler controls, and run history.
+- Optional live-research scoring snapshots for explicit production-mode runs.
 - Manual Amazon draft assist endpoint with save-draft-only guardrails.
 - Nuxt 3 dashboard connected to the backend.
 - Product, marketplace, upload UI, pricing, and validation config contracts.

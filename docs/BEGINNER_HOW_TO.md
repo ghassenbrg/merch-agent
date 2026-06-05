@@ -15,7 +15,7 @@ Use it with these boundaries:
 
 Items that are not finalized for broader production:
 
-- Production research adapters are disabled by default and must be enabled, tested, and monitored before relying on live research evidence.
+- Live research adapters are available for explicit live-research runs, but external source availability can still fail closed. Monitor run logs and snapshots before relying on the output.
 - Amazon page selectors can change, so live Amazon Draft Assist needs visible browser confirmation for each beta cycle.
 - This is local-first SQLite operation, not a multi-user hosted service.
 - Runtime data under `data/` needs your own backup process.
@@ -115,9 +115,10 @@ In the dashboard:
 
 1. Open `/`.
 2. Choose the number of packages.
-3. Click `Generate Local Packages`.
-4. Confirm the message says no Amazon interaction occurred.
-5. Open `/runs` and inspect the latest run logs.
+3. Leave `Live research` off for deterministic local generation, or turn it on to collect web evidence before scoring.
+4. Click `Generate Local Packages`.
+5. Confirm the message says no Amazon interaction occurred.
+6. Open `/runs` and inspect the latest run logs.
 
 API alternative:
 
@@ -130,6 +131,19 @@ curl -sS \
 ```
 
 Never set `touch_amazon` to `true`. The backend should refuse it, but the correct workflow is to keep local autopilot local.
+
+To run the same API flow with live research snapshots:
+
+```bash
+curl -sS \
+  -H "Authorization: Bearer $MERCH_AGENT_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -X POST http://127.0.0.1:8000/api/workflows/autopilot/run \
+  -d '{"count":1,"default_product":"standard_tshirt","explore_marketplaces":true,"touch_amazon":false,"production_mode":true}'
+```
+
+Expected result when external sources respond: a completed run whose draft research artifact has `score_source` set to `live_research_snapshot` and a saved snapshot path under `data/research_snapshots/`.
+Expected result when external sources fail: the run fails closed and no Amazon interaction occurs.
 
 ## 8. Review A Draft
 

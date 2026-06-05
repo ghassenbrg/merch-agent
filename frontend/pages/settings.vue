@@ -19,6 +19,7 @@ const maxPackagesPerDay = ref(10)
 const intervalMinutes = ref(1440)
 const cooldownMinutes = ref(60)
 const diskUsageLimitMb = ref(2048)
+const liveResearchEnabled = ref(false)
 
 interface ProductTemplateConfig {
   width: number
@@ -41,6 +42,7 @@ watchEffect(() => {
   intervalMinutes.value = Number(operations.interval_minutes ?? 1440)
   cooldownMinutes.value = Number(operations.cooldown_minutes ?? 60)
   diskUsageLimitMb.value = Number(operations.disk_usage_limit_mb ?? 2048)
+  liveResearchEnabled.value = Boolean(operations.live_research_enabled || operations.production_mode)
 })
 
 const marketplaces = computed(() => config.value?.marketplaces.marketplaces || [])
@@ -80,6 +82,8 @@ async function saveSettings() {
         cooldown_minutes: cooldownMinutes.value,
         disk_usage_limit_mb: diskUsageLimitMb.value,
         default_product: defaultProduct.value || 'standard_tshirt',
+        production_mode: liveResearchEnabled.value,
+        live_research_enabled: liveResearchEnabled.value,
       },
     }
     await $fetch(`${base}/api/settings`, {
@@ -196,6 +200,13 @@ async function saveSettings() {
                 <small>Blocks queued scheduled jobs and halts before the next local package.</small>
               </span>
               <input v-model="stopSwitchEngaged" type="checkbox" />
+            </label>
+            <label class="toggle-row">
+              <span>
+                <strong>Live research snapshots</strong>
+                <small>Scheduled jobs collect live web evidence before scoring. Amazon remains blocked.</small>
+              </span>
+              <input v-model="liveResearchEnabled" type="checkbox" />
             </label>
           </div>
           <div class="meta-grid">

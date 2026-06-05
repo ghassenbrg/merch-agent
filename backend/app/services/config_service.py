@@ -9,6 +9,7 @@ from app.core.paths import CONFIG_DIR
 from app.core.settings import get_settings
 from app.db.database import get_connection
 from app.models.schemas import ConfigResponse, SettingsPatch
+from app.services.local_package_workflow.research import REQUIRED_SIGNALS
 
 
 CONFIG_FILES = {
@@ -145,6 +146,27 @@ def validate_config_contracts() -> None:
         "candidate_sources.candidate_research must define local_sources or seeded_generators",
         errors,
     )
+    research_evidence = candidate_research.get("research_evidence", {}) if isinstance(candidate_research, dict) else {}
+    live_adapters = research_evidence.get("live_adapters", {}) if isinstance(research_evidence, dict) else {}
+    if live_adapters.get("enabled") is True:
+        enabled_signal_coverage = {
+            str(signal)
+            for adapter in live_adapters.get("adapters", [])
+            if isinstance(adapter, dict) and adapter.get("enabled") is True
+            for signal in adapter.get("signals", [])
+        }
+        missing_signals = sorted(set(REQUIRED_SIGNALS) - enabled_signal_coverage)
+        _require(
+            not missing_signals,
+            f"candidate_sources.research_evidence.live_adapters missing enabled signals: {', '.join(missing_signals)}",
+            errors,
+        )
+        timeout_seconds = live_adapters.get("timeout_seconds")
+        _require(
+            isinstance(timeout_seconds, int | float) and timeout_seconds > 0,
+            "candidate_sources.research_evidence.live_adapters.timeout_seconds must be positive",
+            errors,
+        )
 
     if errors:
         raise ConfigValidationError("Config validation failed: " + "; ".join(errors))
@@ -170,6 +192,7 @@ def _default_settings(config: dict[str, dict[str, Any]]) -> dict[str, Any]:
             "default_product": products[0] if products else "standard_tshirt",
             "explore_marketplaces": True,
             "production_mode": False,
+            "live_research_enabled": False,
         },
     }
 

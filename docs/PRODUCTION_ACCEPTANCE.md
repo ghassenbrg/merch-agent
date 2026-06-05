@@ -14,6 +14,7 @@ Before a beta session is accepted:
 - [ ] `/health/live` and `/health/ready` pass in production-like mode with bearer auth.
 - [ ] Unauthenticated API access is rejected in production-like mode.
 - [ ] Local autopilot can generate packages with `touch_amazon:false`.
+- [ ] Live-research autopilot can generate a package with `production_mode:true`, or fails closed with clear research-unavailable logs when external sources are unavailable.
 - [ ] An attempted autopilot request with `touch_amazon:true` is refused.
 - [ ] Scheduled autopilot creates local packages only and records no Amazon Draft Assist attempt.
 - [ ] A generated package contains draft JSON, listing fields, validation report, design metadata/source, final PNG, run logs, and event history.
@@ -66,6 +67,7 @@ Cycle steps:
 - Final publishing is not automated and must remain manual inside Amazon Merch.
 - Actual Amazon DOM selectors can change; live selector confirmation must happen in the visible controlled browser before relying on a live save attempt.
 - Production research adapters are config-gated and may fail closed when evidence is unavailable.
+- Live-research scoring depends on external sources; failed or incomplete evidence must block production-mode scoring rather than falling back silently.
 - The app is local-first and SQLite-backed; multi-user concurrent operation is not a supported production mode.
 - Write rate limits are in-memory and reset on backend restart.
 - Browser profiles, screenshots, logs, exports, and SQLite data are local runtime data and must be backed up outside the repo for durable retention.

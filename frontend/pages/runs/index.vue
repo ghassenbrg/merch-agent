@@ -11,14 +11,17 @@ const selectedRunId = ref<string | null>(null)
 const isRunning = ref(false)
 const isSchedulerBusy = ref(false)
 const actionMessage = ref('')
+const liveResearchEnabled = ref(false)
 
 const { data: runs, pending, error, refresh } = await useFetch<RunSummary[]>(`${base}/api/runs`, apiOptions)
 const { data: scheduler, refresh: refreshScheduler } = await useFetch<SchedulerStatus>(`${base}/api/workflows/autopilot/scheduler`, apiOptions)
+const { data: config } = await useFetch<any>(`${base}/api/config`, apiOptions)
 
 watchEffect(() => {
   if (!selectedRunId.value && runs.value?.length) {
     selectedRunId.value = runs.value[0].runId
   }
+  liveResearchEnabled.value = Boolean(config.value?.settings?.autopilot_operations?.live_research_enabled)
 })
 
 const { data: selectedRun, refresh: refreshSelected } = await useAsyncData<RunDetail | null>(
@@ -48,7 +51,7 @@ async function runAutopilot() {
         default_product: 'standard_tshirt',
         explore_marketplaces: true,
         touch_amazon: false,
-        production_mode: false,
+        production_mode: liveResearchEnabled.value,
       },
     })
     actionMessage.value = response.message
@@ -104,6 +107,13 @@ async function setSchedulerStop(engaged: boolean) {
       </div>
       <div class="toolbar">
         <button class="btn" :disabled="pending" @click="refreshRuns">Refresh</button>
+        <label class="toggle-row inline-toggle">
+          <span>
+            <strong>Live research</strong>
+            <small>Persist web snapshots before scoring.</small>
+          </span>
+          <input v-model="liveResearchEnabled" type="checkbox" />
+        </label>
         <button class="btn primary" :disabled="isRunning" @click="runAutopilot">
           <RefreshCw v-if="isRunning" :size="15" class="spin" />
           <Play v-else :size="15" />

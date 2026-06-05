@@ -993,9 +993,14 @@ a {
 
 .bulk-controls {
   display: grid;
-  grid-template-columns: minmax(120px, 0.18fr) minmax(220px, 0.32fr) minmax(280px, 1fr);
+  grid-template-columns: minmax(120px, 0.16fr) minmax(220px, 0.28fr) minmax(220px, 0.28fr) minmax(280px, 1fr);
   gap: 12px;
   align-items: end;
+}
+
+.inline-toggle {
+  min-height: 36px;
+  margin: 0;
 }
 
 .compact-field {
